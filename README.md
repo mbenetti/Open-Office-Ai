@@ -12,6 +12,30 @@ Open Office Ai is an independent fork of **GenOffice** under the Apache License 
 * 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai.Setup.1.0.0.exe)
 * 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.AppImage)
 * 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.deb)
+* 🍏 ~~**macOS**~~ \* — not distributed as a prebuilt binary due to Apple's app signing & notarization requirements (a signed, notarized build requires a paid Apple Developer account).
+
+### Building for your own use (macOS)
+
+If you clone this repository and want to build the app for **personal use**, you can build an unsigned (ad-hoc signed) macOS app locally:
+
+```bash
+# Prerequisites: Node.js >= 20, Rust toolchain (cargo)
+npm install
+
+# Build all editor modules + the shell
+npm run build:all
+
+# Package the macOS DMG (unsigned / not notarized)
+npm run dist:mac
+```
+
+The DMG will be written to `apps/shell/release/`. On first launch, macOS Gatekeeper will warn that the app is not notarized — open it with **right-click → Open**, or clear the quarantine flag:
+
+```bash
+xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
+```
+
+\* Only available for personal use on your own Mac; distributing a signed build requires an Apple Developer account.
 
 
 ## Key Features & Enhancements
