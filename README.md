@@ -18,7 +18,7 @@ Get the latest version of Open Office Ai for your platform:
 
 ### macOS Gatekeeper (first launch)
 
-The macOS build is **unsigned** (no Apple Developer certificate), so Gatekeeper will warn on first launch. To open it:
+The macOS build is **ad-hoc signed** but **not notarized** (no Apple Developer certificate), so Gatekeeper will warn on first launch. To open it:
 
 1. **Right-click** (or **Control + click**) the app → select **Open** → click **Open** again.
 2. Or run in a terminal:

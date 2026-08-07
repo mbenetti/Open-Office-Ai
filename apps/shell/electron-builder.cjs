@@ -23,9 +23,9 @@ const updateUrl = process.env.GENOFFICE_UPDATE_URL
 //   1. APPLE_KEYCHAIN_PROFILE                    — local builds (dist:mac)
 //   2. APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
 //      APPLE_TEAM_ID                             — release CI secrets
-// With neither present the build skips signing + notarization entirely.
-// (Attempting to build with hardenedRuntime but no signing identity makes
-// macOS Gatekeeper flag the app as “damaged” on first launch.)
+// With neither present the build ad-hoc signs the app (afterSign hook) and
+// skips notarization. Ad-hoc signing is required: a completely unsigned
+// bundle makes Gatekeeper report the app as “damaged”.
 const hasAppleCredentials =
   !!process.env.APPLE_KEYCHAIN_PROFILE ||
   !!(process.env.APPLE_ID && process.env.APPLE_APP_SPECIFIC_PASSWORD && process.env.APPLE_TEAM_ID)
@@ -110,10 +110,10 @@ const config = {
           notarize: true,
         }
       : {
-          // No Apple Developer credentials: build an unsigned app so Gatekeeper
+          // No Apple Developer credentials: ad-hoc sign the bundle in the
+          // afterSign hook so the app is properly sealed and Gatekeeper
           // treats it as a normal “unidentified developer” app instead of
           // reporting it as damaged.
-          identity: null,
         }),
     extraResources: [
       {
@@ -150,6 +150,7 @@ const config = {
   dmg: {
     sign: hasAppleCredentials,
   },
+  afterSign: 'build/adhoc-sign.js',
   afterAllArtifactBuild: hasAppleCredentials ? 'build/notarize-dmg.js' : undefined,
 }
 
