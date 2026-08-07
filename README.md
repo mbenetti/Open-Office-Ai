@@ -11,10 +11,10 @@ Open Office Ai is an independent fork of **GenOffice**, created and published by
 
 Get the latest version of Open Office Ai for your platform:
 
-* 🍏 **macOS (Apple Silicon):** [Download DMG](./apps/shell/release/Open%20Office%20Ai-0.1.1-arm64.dmg)
-* 🪟 **Windows (x64):** [Download Installer](./apps/shell/release/Open%20Office%20Ai%20Setup%200.1.1.exe)
-* 🐧 **Linux (AppImage):** [Download AppImage](./apps/shell/release/Open%20Office%20Ai-0.1.1-arm64.AppImage)
-* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](./apps/shell/release/Open%20Office%20Ai-0.1.1-arm64.deb)
+* 🍏 **macOS (Apple Silicon):** [Download DMG](./apps/shell/release/Open%20Office%20Ai-1.0.0-arm64.dmg)
+* 🪟 **Windows (x64):** [Download Installer](./apps/shell/release/Open%20Office%20Ai%20Setup%201.0.0.exe)
+* 🐧 **Linux (AppImage):** [Download AppImage](./apps/shell/release/Open%20Office%20Ai-1.0.0-arm64.AppImage)
+* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](./apps/shell/release/Open%20Office%20Ai-1.0.0-arm64.deb)
 
 
 ## Key Features & Enhancements

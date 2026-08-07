@@ -1,15 +1,12 @@
 {
   "name": "@genoffice/shell",
   "productName": "Open Office Ai",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "license": "Apache-2.0",
   "private": true,
   "description": "Unified GenOffice shell: one app hosting the docs and sheets modules behind a home/launcher window",
   "homepage": "https://github.com/mbenetti",
-  "author": {
-    "name": "Dr. Ing. Benetti Mauro A.",
-    "email": "mauro.benetti@example.com"
-  },
+  "author": "GenOffice",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev --watch",
@@ -45,6 +42,5 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.1.10"
-  },
-  "author": "GenOffice"
+  }
 }
