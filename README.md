@@ -7,6 +7,12 @@ Open Office Ai is an independent fork of **GenOffice**, created and published by
 ---
 ![Screenshot](./ing/Screenshot.png)
 
+## Downloads
+
+* 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai.Setup.1.0.0.exe)
+* 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.AppImage)
+* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.deb)
+
 
 ## Key Features & Enhancements
 
