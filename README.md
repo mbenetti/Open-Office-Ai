@@ -2,7 +2,7 @@
 
 An advanced, AI-native office suite for macOS and Windows featuring a word processor, spreadsheet, presentations, and PDF viewer. 
 
-Open Office Ai is an independent fork of **GenOffice**, created and published by Dr. Ing. Benetti Mauro A. under the Apache License 2.0. It builds on GenOffice's substantial foundation—including its byte-preserving OOXML engines, rendering fidelity, and document editors—and introduces a comprehensive set of powerful new features, custom configurations, and a refined look and feel.
+Open Office Ai is an independent fork of **GenOffice** under the Apache License 2.0. It builds on GenOffice's substantial foundation including its byte-preserving OOXML engines, rendering fidelity, and document editors—and introduces a comprehensive set of powerful new features, custom configurations, and a refined look and feel.
 
 ---
 ![Screenshot](./ing/Screenshot.png)
