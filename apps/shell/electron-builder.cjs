@@ -19,6 +19,17 @@ const { join } = require('node:path')
 
 const updateUrl = process.env.GENOFFICE_UPDATE_URL
 
+// macOS signing/notarization credentials, in priority order:
+//   1. APPLE_KEYCHAIN_PROFILE                    — local builds (dist:mac)
+//   2. APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
+//      APPLE_TEAM_ID                             — release CI secrets
+// With neither present the build skips signing + notarization entirely.
+// (Attempting to build with hardenedRuntime but no signing identity makes
+// macOS Gatekeeper flag the app as “damaged” on first launch.)
+const hasAppleCredentials =
+  !!process.env.APPLE_KEYCHAIN_PROFILE ||
+  !!(process.env.APPLE_ID && process.env.APPLE_APP_SPECIFIC_PASSWORD && process.env.APPLE_TEAM_ID)
+
 /** @type {import('electron-builder').Configuration} */
 const config = {
   appId: 'com.openofficeai.app',
@@ -90,11 +101,20 @@ const config = {
   mac: {
     target: ['dmg', 'zip'],
     category: 'public.app-category.productivity',
-    hardenedRuntime: true,
-    gatekeeperAssess: false,
-    entitlements: 'build/entitlements.mac.plist',
-    entitlementsInherit: 'build/entitlements.mac.plist',
-    notarize: true,
+    ...(hasAppleCredentials
+      ? {
+          hardenedRuntime: true,
+          gatekeeperAssess: false,
+          entitlements: 'build/entitlements.mac.plist',
+          entitlementsInherit: 'build/entitlements.mac.plist',
+          notarize: true,
+        }
+      : {
+          // No Apple Developer credentials: build an unsigned app so Gatekeeper
+          // treats it as a normal “unidentified developer” app instead of
+          // reporting it as damaged.
+          identity: null,
+        }),
     extraResources: [
       {
         from: '../sheets/native/xlsx-engine/target/release/xlsx-sidecar',
@@ -128,9 +148,9 @@ const config = {
     allowToChangeInstallationDirectory: true,
   },
   dmg: {
-    sign: true,
+    sign: hasAppleCredentials,
   },
-  afterAllArtifactBuild: 'build/notarize-dmg.js',
+  afterAllArtifactBuild: hasAppleCredentials ? 'build/notarize-dmg.js' : undefined,
 }
 
 if (updateUrl) {
