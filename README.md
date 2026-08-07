@@ -7,27 +7,6 @@ Open Office Ai is an independent fork of **GenOffice**, created and published by
 ---
 ![Screenshot](./ing/Screenshot.png)
 
-## Downloads
-
-Get the latest version of Open Office Ai for your platform:
-
-* 🍏 **macOS (Apple Silicon):** [Download DMG](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.dmg)
-* 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai.Setup.1.0.0.exe)
-* 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.AppImage)
-* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.deb)
-
-### macOS Gatekeeper (first launch)
-
-The macOS build is **ad-hoc signed** but **not notarized** (no Apple Developer certificate), so Gatekeeper will warn on first launch. To open it:
-
-1. **Right-click** (or **Control + click**) the app → select **Open** → click **Open** again.
-2. Or run in a terminal:
-   ```bash
-   xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
-   ```
-
-After that, the app opens normally.
-
 
 ## Key Features & Enhancements
 
