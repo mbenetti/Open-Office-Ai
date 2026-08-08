@@ -57,11 +57,17 @@ export interface AiProviderMeta {
   needsBaseUrl?: boolean
 }
 
+export interface AiSearchSettings {
+  tavilyApiKey?: string | undefined
+  serperApiKey?: string | undefined
+}
+
 export interface AiSettings {
   provider: AiProviderId
   providers: Record<AiProviderId, AiProviderConfig>
   mcpServers?: McpServerConfig[] | undefined
   embedding?: EmbeddingProviderConfig | undefined
+  search?: AiSearchSettings | undefined
 }
 
 /** pre-provider settings shape (single OpenAI-compatible endpoint); migrated into "custom" */

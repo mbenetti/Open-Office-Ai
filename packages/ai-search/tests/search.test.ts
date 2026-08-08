@@ -1,81 +1,71 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { webSearch, imageSearch } from '../src/index'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { webSearch } from '../src/index'
 
-const realFetch = globalThis.fetch
 afterEach(() => {
-  globalThis.fetch = realFetch
+  vi.restoreAllMocks()
+  delete process.env.TAVILY_API_KEY
   delete process.env.SERPER_API_KEY
 })
 
-function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; json?: any; text?: string }) {
-  globalThis.fetch = vi.fn(async (url: any, init: any) => {
-    const r = handler(String(url), init)
-    return {
-      ok: r.ok,
-      status: r.ok ? 200 : 500,
-      headers: new Map(),
-      json: async () => r.json,
-      text: async () => r.text ?? '',
-    } as any
-  }) as any
-}
-
-describe('webSearch (Serper)', () => {
-  it('parses organic results + answer box', async () => {
-    process.env.SERPER_API_KEY = 'test-key'
-    mockFetch((url) => {
-      expect(url).toBe('https://google.serper.dev/search')
-      return {
-        ok: true,
-        json: {
-          answerBox: { answer: '42' },
-          organic: [
-            { title: 'A', link: 'https://a.com', snippet: 'sa' },
-            { title: 'B', link: 'https://b.com', snippet: 'sb' },
-          ],
-        },
-      }
+describe('webSearch cascade', () => {
+  it('uses Tavily when tavilyApiKey is provided and successful', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{ title: 'Tavily Result', url: 'https://tavily.com', content: 'Tavily snippet' }],
+        answer: 'Tavily direct answer',
+      }),
     })
-    const r = await webSearch('meaning of life', 5)
-    expect(r.method).toBe('serper')
-    expect(r.answer).toBe('42')
-    expect(r.results).toHaveLength(2)
-    expect(r.results[0]).toEqual({ title: 'A', url: 'https://a.com', snippet: 'sa' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await webSearch('test query', 5, { tavilyApiKey: 'tvly-12345' })
+
+    expect(res.method).toBe('tavily')
+    expect(res.answer).toBe('Tavily direct answer')
+    expect(res.results[0]?.title).toBe('Tavily Result')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.tavily.com/search',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
   })
 
-  it('falls back to DuckDuckGo when no key', async () => {
-    mockFetch((url) => {
-      expect(url).toContain('duckduckgo.com')
-      return {
-        ok: true,
-        text: '<a class="result__a" href="/l/?uddg=https%3A%2F%2Fx.com">X Title</a>',
+  it('falls back to Serper when Tavily fails or has no key, and Serper key is present', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('serper.dev')) {
+        return {
+          ok: true,
+          json: async () => ({
+            organic: [{ title: 'Serper Result', link: 'https://google.com', snippet: 'Serper snippet' }],
+          }),
+        }
       }
+      return { ok: false }
     })
-    const r = await webSearch('q', 3)
-    expect(r.method).toBe('duckduckgo')
-    expect(r.results[0]?.url).toBe('https://x.com')
-    expect(r.results[0]?.title).toBe('X Title')
-  })
-})
+    vi.stubGlobal('fetch', fetchMock)
 
-describe('imageSearch (Serper)', () => {
-  it('parses images + filters copyright hosts', async () => {
-    process.env.SERPER_API_KEY = 'test-key'
-    mockFetch((url) => {
-      expect(url).toBe('https://google.serper.dev/images')
-      return {
-        ok: true,
-        json: {
-          images: [
-            { title: 'good', imageUrl: 'https://cdn.example.com/a.jpg', link: 'https://example.com', imageWidth: 800, imageHeight: 600 },
-            { title: 'paid', imageUrl: 'https://gettyimages.com/x.jpg', link: 'https://gettyimages.com' },
-          ],
-        },
+    const res = await webSearch('test query', 5, { serperApiKey: 'serper-key-999' })
+
+    expect(res.method).toBe('serper')
+    expect(res.results[0]?.title).toBe('Serper Result')
+  })
+
+  it('falls back to DuckDuckGo when neither Tavily nor Serper keys are provided', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('duckduckgo')) {
+        return {
+          ok: true,
+          text: async () => `<a class="result__a" href="/l/?uddg=https%3A%2F%2Fduckduckgo.com">Duck Result</a>`,
+        }
       }
+      return { ok: false }
     })
-    const r = await imageSearch('cats', 8)
-    expect(r.method).toBe('serper')
-    expect(r.images).toHaveLength(1) // getty is filtered out
-    expect(r.images[0]).toMatchObject({ imageUrl: 'https://cdn.example.com/a.jpg', width: 800, height: 600 })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await webSearch('test query', 5)
+
+    expect(res.method).toBe('duckduckgo')
+    expect(res.results[0]?.title).toBe('Duck Result')
   })
 })

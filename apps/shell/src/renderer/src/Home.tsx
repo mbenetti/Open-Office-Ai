@@ -1039,7 +1039,7 @@ const LANG_OPTIONS = [
 
 function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { lang, setLang } = useI18n()
-  const [tab, setTab] = useState<'llm' | 'embedding' | 'mcp' | 'general'>('llm')
+  const [tab, setTab] = useState<'llm' | 'search' | 'embedding' | 'mcp' | 'general'>('llm')
   const [settings, setSettings] = useState<AiSettings>(defaultAiSettings())
   /** welcome-page theme (dark/light); document editors stay light */
   const [theme, setTheme] = useState<'dark' | 'light'>(() =>
@@ -1119,6 +1119,12 @@ function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
             onClick={() => setTab('llm')}
           >
             LLM Endpoint
+          </button>
+          <button
+            className={`settings-tab-btn${tab === 'search' ? ' active' : ''}`}
+            onClick={() => setTab('search')}
+          >
+            Web Search
           </button>
           <button
             className={`settings-tab-btn${tab === 'embedding' ? ' active' : ''}`}
@@ -1214,6 +1220,75 @@ function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                 />
                 <span className="settings-field-label" style={{ margin: 0, userSelect: 'none' }}>
                   Disable Thinking (strips &lt;think&gt;...&lt;/think&gt; blocks)
+                </span>
+              </label>
+            </div>
+          )}
+
+          {tab === 'search' && (
+            <div className="settings-form-group">
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: '10px 12px',
+                  background: 'var(--bg-card, #252830)',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: 'var(--text-main, #e0e0e0)',
+                  border: '1px solid var(--border-color, #333)',
+                }}
+              >
+                <strong>Search Execution Priority:</strong>
+                <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
+                  <li>
+                    <strong>Tavily API</strong> (used first if API key is provided)
+                  </li>
+                  <li>
+                    <strong>Serper API</strong> (Google Search; requires API key)
+                  </li>
+                  <li>
+                    <strong>DuckDuckGo</strong> (default fallback, works automatically without API keys)
+                  </li>
+                </ol>
+              </div>
+
+              <label className="settings-field">
+                <span className="settings-field-label">Tavily API Key</span>
+                <input
+                  type="password"
+                  className="settings-input"
+                  placeholder="tvly-..."
+                  value={settings.search?.tavilyApiKey ?? ''}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      search: { ...settings.search, tavilyApiKey: e.target.value },
+                    })
+                  }
+                />
+                <span style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                  High-precision AI search API (tavily.com). Used first when set.
+                </span>
+              </label>
+
+              <label className="settings-field" style={{ marginTop: 12 }}>
+                <span className="settings-field-label">Serper API Key</span>
+                <input
+                  type="password"
+                  className="settings-input"
+                  placeholder="Serper API Key (Google Search)"
+                  value={settings.search?.serperApiKey ?? ''}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      search: { ...settings.search, serperApiKey: e.target.value },
+                    })
+                  }
+                />
+                <span style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                  Google Search API via Serper (serper.dev). Serper requires an API key; without a key,
+                  search automatically falls back to DuckDuckGo.
                 </span>
               </label>
             </div>

@@ -1,6 +1,6 @@
 /**
- * Search utilities (main process) — Serper Google API first, with DuckDuckGo as default fallback.
- * Runs in the main process (Node fetch) to avoid renderer CORS; Serper key reuses SERPER_API_KEY.
+ * Search utilities (main process) — Tavily API first, Serper Google API second, with DuckDuckGo as default fallback.
+ * Runs in the main process (Node fetch) to avoid renderer CORS.
  */
 
 import {
@@ -13,63 +13,132 @@ import {
 
 export type { ImageSearchResult, WebSearchResult } from './shared'
 
-const SERPER_KEY = () => process.env.SERPER_API_KEY ?? ''
+export interface SearchOptions {
+  tavilyApiKey?: string | undefined
+  serperApiKey?: string | undefined
+}
 
 // ── Web search ──────────────────────────────────────────────────────
 
-export async function webSearch(query: string, maxResults = 6): Promise<{
+export async function tavilyWebSearch(
+  query: string,
+  maxResults = 6,
+  apiKey: string,
+): Promise<{ results: WebSearchResult[]; answer?: string; method: string } | null> {
+  try {
+    const resp = await fetchWithTimeout('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query,
+        max_results: maxResults,
+        search_depth: 'basic',
+        include_answer: true,
+      }),
+    })
+    if (resp.ok) {
+      const data = asRecord(await resp.json())
+      const raw: unknown[] = Array.isArray(data.results) ? data.results : []
+      const results: WebSearchResult[] = raw.slice(0, maxResults).map((item) => {
+        const o = asRecord(item)
+        return {
+          title: String(o.title ?? ''),
+          url: String(o.url ?? ''),
+          snippet: String(o.content ?? o.snippet ?? ''),
+        }
+      })
+      const answer =
+        typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : undefined
+      if (results.length > 0) {
+        return { results, ...(answer ? { answer } : {}), method: 'tavily' }
+      }
+    }
+  } catch {
+    /* fallback to next search engine */
+  }
+  return null
+}
+
+export async function serperWebSearch(
+  query: string,
+  maxResults = 6,
+  apiKey: string,
+): Promise<{ results: WebSearchResult[]; answer?: string; method: string } | null> {
+  try {
+    const resp = await fetchWithTimeout('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query, num: maxResults, gl: 'us', hl: 'en' }),
+    })
+    if (resp.ok) {
+      const data = asRecord(await resp.json())
+      const organic: unknown[] = Array.isArray(data.organic) ? data.organic : []
+      const results: WebSearchResult[] = organic.slice(0, maxResults).map((item) => {
+        const o = asRecord(item)
+        return {
+          title: String(o.title ?? ''),
+          url: String(o.link ?? ''),
+          snippet: String(o.snippet ?? ''),
+        }
+      })
+      const answerBox = asRecord(data.answerBox)
+      const answerRaw =
+        answerBox.answer || answerBox.snippet || asRecord(data.knowledgeGraph).description
+      const answer = typeof answerRaw === 'string' && answerRaw ? answerRaw : undefined
+      if (results.length > 0) {
+        return { results, ...(answer ? { answer } : {}), method: 'serper' }
+      }
+    }
+  } catch {
+    /* fallback to DuckDuckGo */
+  }
+  return null
+}
+
+export async function webSearch(
+  query: string,
+  maxResults = 6,
+  options?: SearchOptions,
+): Promise<{
   results: WebSearchResult[]
   answer?: string
   method: string
 }> {
-  const key = SERPER_KEY()
-  if (key) {
-    try {
-      const resp = await fetchWithTimeout('https://google.serper.dev/search', {
-        method: 'POST',
-        headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: query, num: maxResults, gl: 'us', hl: 'en' }),
-      })
-      if (resp.ok) {
-        const data = asRecord(await resp.json())
-        const organic: unknown[] = Array.isArray(data.organic) ? data.organic : []
-        const results: WebSearchResult[] = organic.slice(0, maxResults).map((item) => {
-          const o = asRecord(item)
-          return {
-            title: String(o.title ?? ''),
-            url: String(o.link ?? ''),
-            snippet: String(o.snippet ?? ''),
-          }
-        })
-        const answerBox = asRecord(data.answerBox)
-        const answerRaw =
-          answerBox.answer || answerBox.snippet || asRecord(data.knowledgeGraph).description
-        const answer = typeof answerRaw === 'string' && answerRaw ? answerRaw : undefined
-        if (results.length) {
-          return answer !== undefined
-            ? { results, answer, method: 'serper' }
-            : { results, method: 'serper' }
-        }
-      }
-    } catch {
-      /* fall back to DuckDuckGo */
-    }
+  // 1. Tavily API (used first if key provided)
+  const tavilyKey = (options?.tavilyApiKey || process.env.TAVILY_API_KEY || '').trim()
+  if (tavilyKey) {
+    const tavily = await tavilyWebSearch(query, maxResults, tavilyKey)
+    if (tavily) return tavily
   }
+
+  // 2. Serper API (used if key provided)
+  const serperKey = (options?.serperApiKey || process.env.SERPER_API_KEY || '').trim()
+  if (serperKey) {
+    const serper = await serperWebSearch(query, maxResults, serperKey)
+    if (serper) return serper
+  }
+
+  // 3. DuckDuckGo fallback (works without API key)
   return { ...(await duckWebSearch(query, maxResults)), method: 'duckduckgo' }
 }
 
 // ── Image search ────────────────────────────────────────────────────
 
-export async function imageSearch(query: string, maxResults = 8): Promise<{
+export async function imageSearch(
+  query: string,
+  maxResults = 8,
+  options?: SearchOptions,
+): Promise<{
   images: ImageSearchResult[]
   method: string
 }> {
-  const key = SERPER_KEY()
-  if (key) {
+  const serperKey = (options?.serperApiKey || process.env.SERPER_API_KEY || '').trim()
+  if (serperKey) {
     try {
       const resp = await fetchWithTimeout('https://google.serper.dev/images', {
         method: 'POST',
-        headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+        headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ q: query, num: Math.min(maxResults, 10), gl: 'us', hl: 'en' }),
       })
       if (resp.ok) {
@@ -101,11 +170,13 @@ export async function imageSearch(query: string, maxResults = 8): Promise<{
   return { images: await duckImageSearch(query, maxResults), method: 'duckduckgo' }
 }
 
-// ── DuckDuckGo fallback (no key / quota exhausted) ──────────────────
+// ── DuckDuckGo fallback (no key required) ──────────────────
 
-async function duckWebSearch(query: string, maxResults: number): Promise<{ results: WebSearchResult[] }> {
+async function duckWebSearch(
+  query: string,
+  maxResults: number,
+): Promise<{ results: WebSearchResult[] }> {
   try {
-    // DuckDuckGo HTML endpoint (lightweight, no key needed)
     const resp = await fetchWithTimeout(
       `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
       { headers: { 'User-Agent': 'Mozilla/5.0' } },
@@ -125,9 +196,11 @@ async function duckWebSearch(query: string, maxResults: number): Promise<{ resul
   }
 }
 
-async function duckImageSearch(query: string, maxResults: number): Promise<ImageSearchResult[]> {
+async function duckImageSearch(
+  query: string,
+  maxResults: number,
+): Promise<ImageSearchResult[]> {
   try {
-    // DuckDuckGo i.js needs a vqd token, so it takes two steps
     const tokenResp = await fetchWithTimeout(
       `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
       { headers: { 'User-Agent': 'Mozilla/5.0' } },
@@ -164,7 +237,10 @@ async function duckImageSearch(query: string, maxResults: number): Promise<Image
 
 // ── utils ───────────────────────────────────────────────────────────
 
-async function fetchWithTimeout(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit & { timeoutMs?: number } = {},
+): Promise<Response> {
   const controller = new AbortController()
   const t = setTimeout(() => controller.abort(), init.timeoutMs ?? 15000)
   try {
@@ -179,7 +255,6 @@ function stripTags(s: string): string {
 }
 
 function decodeDuckUrl(href: string): string {
-  // DuckDuckGo result links are often /l/?uddg=<encoded>
   const m = /[?&]uddg=([^&]+)/.exec(href)
   if (m) return decodeURIComponent(m[1]!)
   return href.startsWith('http') ? href : ''

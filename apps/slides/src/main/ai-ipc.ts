@@ -135,10 +135,15 @@ export function registerAiIpc(): void {
     activeAiStreams.get(requestId)?.abort()
   })
 
-  // Search tools (content + images), Serper with DuckDuckGo fallback
+  // Search tools (content + images), Tavily / Serper with DuckDuckGo fallback
   ipcMain.handle('ai:web-search', async (_event, query: string, maxResults?: number) => {
     try {
-      return await webSearch(String(query), typeof maxResults === 'number' ? maxResults : 6)
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
+      const freshSettings = resolveAiSettings(diskStored, defaultAiSettings())
+      return await webSearch(String(query), typeof maxResults === 'number' ? maxResults : 6, {
+        tavilyApiKey: freshSettings.search?.tavilyApiKey,
+        serperApiKey: freshSettings.search?.serperApiKey,
+      })
     } catch (err) {
       return { results: [], method: 'error', error: String(err) }
     }
@@ -146,7 +151,12 @@ export function registerAiIpc(): void {
 
   ipcMain.handle('ai:image-search', async (_event, query: string, maxResults?: number) => {
     try {
-      return await imageSearch(String(query), typeof maxResults === 'number' ? maxResults : 8)
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
+      const freshSettings = resolveAiSettings(diskStored, defaultAiSettings())
+      return await imageSearch(String(query), typeof maxResults === 'number' ? maxResults : 8, {
+        tavilyApiKey: freshSettings.search?.tavilyApiKey,
+        serperApiKey: freshSettings.search?.serperApiKey,
+      })
     } catch (err) {
       return { images: [], method: 'error', error: String(err) }
     }

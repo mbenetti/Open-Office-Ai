@@ -2137,13 +2137,18 @@ export function registerSheetsAiIpc(): void {
     entry.aiStreams.get(z.string().min(1).parse(requestId))?.abort()
   })
 
-  // Shared search tools (content + images): Serper with DuckDuckGo fallback
-  // (same source as slides/docs)
+  // Shared search tools (content + images): Tavily / Serper with DuckDuckGo fallback
   ipcMain.handle('ai:web-search', async (_event, query: unknown, maxResults?: unknown) => {
     try {
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+      const freshSettings = resolveAiSettings(diskStored, defaultAiSettings())
       return await webSearch(
         z.string().parse(query),
         typeof maxResults === 'number' ? maxResults : 6,
+        {
+          tavilyApiKey: freshSettings.search?.tavilyApiKey,
+          serperApiKey: freshSettings.search?.serperApiKey,
+        },
       )
     } catch (err) {
       return { results: [], method: 'error', error: String(err) }
@@ -2151,9 +2156,15 @@ export function registerSheetsAiIpc(): void {
   })
   ipcMain.handle('ai:image-search', async (_event, query: unknown, maxResults?: unknown) => {
     try {
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+      const freshSettings = resolveAiSettings(diskStored, defaultAiSettings())
       return await imageSearch(
         z.string().parse(query),
         typeof maxResults === 'number' ? maxResults : 8,
+        {
+          tavilyApiKey: freshSettings.search?.tavilyApiKey,
+          serperApiKey: freshSettings.search?.serperApiKey,
+        },
       )
     } catch (err) {
       return { images: [], method: 'error', error: String(err) }
