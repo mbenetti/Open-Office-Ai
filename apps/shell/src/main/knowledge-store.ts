@@ -262,7 +262,7 @@ export class KnowledgeStore {
       }
     }
 
-    const docId = crypto.randomUUID()
+    const docId = `doc-${crypto.randomUUID().slice(0, 8)}`
     const name = basename(filePath)
     const normExt: 'pdf' | 'md' = ext === 'pdf' ? 'pdf' : 'md'
     const totalChars = chunks.reduce((acc: number, c: DocumentChunk) => acc + c.charCount, 0)

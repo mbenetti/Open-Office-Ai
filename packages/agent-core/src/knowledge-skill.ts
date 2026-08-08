@@ -178,7 +178,11 @@ export function createKnowledgeSkill(
         if (call.input.docId && typeof call.input.docId === 'string') {
           const q = call.input.docId.toLowerCase().trim()
           doc = docs.find(
-            (d) => d.id === q || d.name.toLowerCase() === q || d.name.toLowerCase().includes(q),
+            (d) =>
+              d.id.toLowerCase() === q ||
+              d.id.toLowerCase().replace(/^doc-/, '') === q.replace(/^doc-/, '') ||
+              d.name.toLowerCase() === q ||
+              d.name.toLowerCase().includes(q),
           )
         }
         if (!doc && call.input.index !== undefined) {
