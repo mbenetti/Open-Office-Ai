@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
 import { DOMParser as PmDOMParser, type Mark as PmMark } from '@tiptap/pm/model'
+import { cleanPastedHtml } from './editor/clean-html'
 import {
   BLANK_BULLET_NUM_ID,
   BLANK_ORDERED_NUM_ID,
@@ -182,13 +183,7 @@ function posFromAnchor(view: Editor['view'], anchor: LineAnchor): number | undef
   }
 }
 
-/** Clean pasted Word/web HTML: mso conditional comments, <o:p>, and unwrapping <li><p>x</p></li> */
-function cleanPastedHtml(html: string): string {
-  return html
-    .replace(/<!--\[if[\s\S]*?<!\[endif\]-->/g, '')
-    .replace(/<o:p>[\s\S]*?<\/o:p>/g, '')
-    .replace(/<li([^>]*)>\s*<p[^>]*>([\s\S]*?)<\/p>\s*<\/li>/g, '<li$1>$2</li>')
-}
+
 
 /** Footnote area at the top of a page gap (previous page's bottom): absolutely positioned in the content area, double-click an entry to edit */
 function makeGapNotesEl(

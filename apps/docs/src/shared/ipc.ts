@@ -50,6 +50,12 @@ export type {
 /** Image attachment extensions: no text extraction; read as base64 on send and passed to the model as a multimodal image with the user message */
 export const ATTACHMENT_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 
+export interface TocItem {
+  level: 1 | 2
+  title: string
+  offset: number
+}
+
 export interface AttachmentMeta {
   /** absolute local path; the file never leaves the machine */
   path: string
@@ -57,6 +63,8 @@ export interface AttachmentMeta {
   /** lowercased extension without the dot */
   ext: string
   sizeBytes: number
+  /** Table of Contents headings (# and ##) extracted from document text */
+  toc?: TocItem[]
 }
 
 export interface AttachmentAddResult {

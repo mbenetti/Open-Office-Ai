@@ -2016,6 +2016,29 @@ th.cell-rev-del {
   color: var(--text-dim);
 }
 
+/* unfocused selection and caret highlight when typing in AI chatbox or sidebar */
+.doc-selection-unfocused {
+  background-color: rgba(37, 99, 235, 0.22) !important;
+  border-radius: 2px;
+}
+
+@keyframes blink-unfocused-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.doc-cursor-unfocused {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  background-color: #2563eb;
+  margin-left: -1px;
+  margin-right: -1px;
+  vertical-align: text-bottom;
+  animation: blink-unfocused-cursor 1s infinite;
+  pointer-events: none;
+}
+
 /* tracked changes: insertions underlined, deletions struck through (Word revisions) */
 .doc-ins {
   color: #b91c1c;

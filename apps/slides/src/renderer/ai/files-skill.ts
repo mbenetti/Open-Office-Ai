@@ -14,7 +14,9 @@ const READ_CHUNK_CHARS = 24_000
 
 const FILES_SYSTEM_PROMPT = `## Attachments
 The user may attach local files to the conversation (see the "attachment list" in each turn's context).
+- When available, attachments include a Table of Contents (TOC) listing # (Level 1) and ## (Level 2) headings and their character offsets.
 - When the user's request involves attachment content, read it with read_attachment first, then answer or generate; don't guess content from file names.
+- You can navigate by passing offset OR by passing a heading title from the TOC to jump directly to that section.
 - Long files are read in pages: the result gives the total character count and the current range; to continue, set offset to the previous chunk's end position.
 - Image attachments (png/jpg/gif/webp) were already sent as images with the user message — just look at them; read_attachment is only for text attachments.
 - When there are no attachments or they are irrelevant to the request, don't call read_attachment.`
@@ -37,7 +39,7 @@ export function createFilesSkill(
       {
         name: 'read_attachment',
         description:
-          "Read an attachment's text content (parsed locally). Long files are paginated: read offset=0 first, then decide whether to continue based on the returned total character count.",
+          "Read an attachment's text content (parsed locally). Jump directly to a TOC heading by name/title or pass a character offset. Long files are paginated.",
         inputSchema: {
           type: 'object',
           properties: {
@@ -46,6 +48,11 @@ export function createFilesSkill(
               description: 'Attachment index (0-based, see the attachment list)',
             },
             offset: { type: 'integer', description: 'Starting character position, default 0' },
+            heading: {
+              type: 'string',
+              description:
+                'Heading title from the TOC to jump directly to that section (matches # or ## headings)',
+            },
           },
           required: ['index'],
         },
@@ -54,7 +61,19 @@ export function createFilesSkill(
     buildContext: () => {
       const list = getAttachments()
       if (list.length === 0) return ''
-      const lines = list.map((a, i) => `${i} | ${a.name} | .${a.ext} | ${formatSize(a.sizeBytes)}`)
+      const lines = list.map((a, i) => {
+        let line = `${i} | ${a.name} | .${a.ext} | ${formatSize(a.sizeBytes)}`
+        if (a.toc && a.toc.length > 0) {
+          const tocStr = a.toc
+            .map(
+              (t) =>
+                `    ${'  '.repeat(t.level - 1)}- ${'#'.repeat(t.level)} ${t.title} (offset: ${t.offset})`,
+            )
+            .join('\n')
+          line += `\n  Table of Contents:\n${tocStr}`
+        }
+        return line
+      })
       return `Attachment list (index | file name | type | size):\n${lines.join('\n')}`
     },
     executeTool: async (call) => {
@@ -79,7 +98,21 @@ export function createFilesSkill(
           summary: t('aiSumImageAttachment', { name: att.name }),
         }
       }
-      const offset = Math.max(0, Number(call.input.offset) || 0)
+      let offset = Math.max(0, Number(call.input.offset) || 0)
+      if (
+        call.input.heading &&
+        typeof call.input.heading === 'string' &&
+        att.toc &&
+        att.toc.length > 0
+      ) {
+        const target = call.input.heading.toLowerCase().trim()
+        const match =
+          att.toc.find((t) => t.title.toLowerCase() === target) ||
+          att.toc.find((t) => t.title.toLowerCase().includes(target))
+        if (match) {
+          offset = match.offset
+        }
+      }
       const result = await window.desktop.readAttachment(att.path, offset, READ_CHUNK_CHARS)
       if (!result.ok) {
         return {

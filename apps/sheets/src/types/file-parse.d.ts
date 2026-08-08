@@ -18,6 +18,14 @@ export interface ParsedFile {
 /** parse an attachment into plain text (or flag it as image / unsupported) */
 export function parseFileToText(filePath: string): Promise<ParsedFile>
 
+export interface TocItem {
+  level: 1 | 2
+  title: string
+  offset: number
+}
+
+export function extractToc(text: string): TocItem[]
+
 export interface DocumentChunk {
   chunkIndex: number
   headerPath: string

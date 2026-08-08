@@ -84,6 +84,7 @@ import {
   SdtExtension,
   SearchHighlightExtension,
   TabStopExtension,
+  UnfocusedSelectionExtension,
 } from './decoration-extensions'
 import { AutoDirectionExtension } from './direction'
 export * from './marks'
@@ -2257,5 +2258,6 @@ export const editorExtensions = [
   MoveRevisionExtension,
   PPrChangeExtension,
   RevisionOriginalExtension,
+  UnfocusedSelectionExtension,
   AutoDirectionExtension,
 ]

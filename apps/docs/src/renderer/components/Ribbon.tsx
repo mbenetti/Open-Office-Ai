@@ -35,6 +35,7 @@ import type { InkTool } from '../editor/ink'
 import type { RibbonFormatState } from './ribbon-format-state'
 import { setSelectedColumnWidth } from '../editor/table-sizing'
 import { useI18n, type StringKey } from '../i18n/locale'
+import { acceptCurrentRevision } from '../editor/revisions'
 import { fontFamiliesFor } from '../font-list'
 import {
   DesignTab,
@@ -1098,10 +1099,16 @@ function RibbonInner({
 
   const markBtn = (name: string, active: boolean, title: string, label: ReactNode) => (
     <button
-      className={`rb-icon ${active ? 'active' : ''}`}
+      className={`rb-icon ${active || (name === 'underline' && !!editor?.isActive('ins')) ? 'active' : ''}`}
       disabled={!canEdit}
       title={title}
-      onClick={() => chain().toggleMark(name).run()}
+      onClick={() => {
+        if (name === 'underline' && editor?.isActive('ins')) {
+          acceptCurrentRevision(editor)
+          return
+        }
+        chain().toggleMark(name).run()
+      }}
     >
       {label}
     </button>

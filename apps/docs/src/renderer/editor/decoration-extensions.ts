@@ -536,3 +536,45 @@ export const PPrChangeExtension = Extension.create({
     ]
   },
 })
+
+export const unfocusedSelectionPluginKey = new PluginKey<DecorationSet>('unfocusedSelection')
+
+/**
+ * Renders a visual selection highlight or cursor widget when the editor is unfocused
+ * (e.g. when typing in the AI chatbox), keeping the document selection / cursor position visible.
+ */
+export const UnfocusedSelectionExtension = Extension.create({
+  name: 'unfocusedSelection',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: unfocusedSelectionPluginKey,
+        props: {
+          decorations(state) {
+            const view = (this as any).spec?.view as EditorView | undefined
+            // When the editor view has DOM focus, native selection is active
+            if (view?.hasFocus()) return DecorationSet.empty
+
+            const { from, to, empty } = state.selection
+            if (!empty) {
+              return DecorationSet.create(state.doc, [
+                Decoration.inline(from, to, { class: 'doc-selection-unfocused' }),
+              ])
+            }
+
+            // Unfocused caret widget
+            if (from >= 0 && from <= state.doc.content.size) {
+              const cursorEl = document.createElement('span')
+              cursorEl.className = 'doc-cursor-unfocused'
+              return DecorationSet.create(state.doc, [
+                Decoration.widget(from, cursorEl, { side: -1 }),
+              ])
+            }
+
+            return DecorationSet.empty
+          },
+        },
+      }),
+    ]
+  },
+})

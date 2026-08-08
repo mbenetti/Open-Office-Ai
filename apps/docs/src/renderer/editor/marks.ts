@@ -341,6 +341,7 @@ export const InstrFieldMark = Mark.create({
 
 /** Inline styles of foreign HTML → docTextStyle attrs (returns false when no usable style, so no mark is applied) */
 function textStyleAttrsFromDom(el: HTMLElement): Record<string, unknown> | false {
+  const isInternal = el.hasAttribute('data-doc-style') || el.hasAttribute('data-style')
   const attrs: Record<string, unknown> = {}
   const st = el.style
   const hex = (css: string): string | null => {
@@ -357,19 +358,25 @@ function textStyleAttrsFromDom(el: HTMLElement): Record<string, unknown> | false
   }
   const color = hex(st.color)
   if (color && color !== '000000') attrs.color = color
-  const size = st.fontSize
-  if (size) {
-    const v = parseFloat(size)
-    if (Number.isFinite(v) && v > 0) {
-      if (size.endsWith('pt')) attrs.sizeHalfPoints = Math.round(v * 2)
-      else if (size.endsWith('px')) attrs.sizeHalfPoints = Math.round(v * 1.5)
+
+  // Preserve font size and font family only for internal elements with data-doc-style / data-style.
+  // Foreign pasted HTML should inherit the document's and cursor's font and size settings.
+  if (isInternal) {
+    const size = st.fontSize
+    if (size) {
+      const v = parseFloat(size)
+      if (Number.isFinite(v) && v > 0) {
+        if (size.endsWith('pt')) attrs.sizeHalfPoints = Math.round(v * 2)
+        else if (size.endsWith('px')) attrs.sizeHalfPoints = Math.round(v * 1.5)
+      }
     }
+    const family = st.fontFamily
+      ?.split(',')[0]
+      ?.trim()
+      .replace(/^["']|["']$/g, '')
+    if (family) attrs.font = family
   }
-  const family = st.fontFamily
-    ?.split(',')[0]
-    ?.trim()
-    .replace(/^["']|["']$/g, '')
-  if (family) attrs.font = family
+
   const spacing = parseFloat(st.letterSpacing)
   if (Number.isFinite(spacing) && spacing !== 0) {
     attrs.charSpacingTwips = Math.round(

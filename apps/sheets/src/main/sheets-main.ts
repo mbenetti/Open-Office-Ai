@@ -60,7 +60,7 @@ import {
   webSearch,
   imageSearch,
 } from '@genoffice/ai-search'
-import { parseFileToText } from '@genoffice/file-parse'
+import { extractToc, parseFileToText } from '@genoffice/file-parse'
 import type { CellEdit, SheetStructuralOps } from '../gateway/xlsx-gateway'
 import { readArchiveEntryText, saveWorkbookViaSidecar } from '../gateway/xlsx-package-io'
 import { parsePivotDefinition } from '../gateway/xlsx-pivot'
@@ -1463,13 +1463,27 @@ function statAttachment(filePath: string): { meta?: AttachmentMeta; error?: stri
   }
 }
 
-function collectAttachments(paths: string[]): AttachmentAddResult {
+async function collectAttachments(paths: string[]): Promise<AttachmentAddResult> {
   const accepted: AttachmentMeta[] = []
   const rejected: string[] = []
   for (const p of paths) {
     const { meta, error } = statAttachment(p)
-    if (meta) accepted.push(meta)
-    else if (error) rejected.push(error)
+    if (meta) {
+      if (!ATTACHMENT_IMAGE_EXTS.has(meta.ext)) {
+        try {
+          const text = await extractAttachmentText(p)
+          const toc = extractToc(text)
+          if (toc.length > 0) {
+            meta.toc = toc
+          }
+        } catch {
+          // ignore extraction error for TOC calculation
+        }
+      }
+      accepted.push(meta)
+    } else if (error) {
+      rejected.push(error)
+    }
   }
   return { accepted, rejected }
 }
@@ -1931,9 +1945,9 @@ export function registerSheetsIpc(): void {
     return collectAttachments(selection.filePaths)
   })
 
-  ipcMain.handle(IPC_CHANNELS.filesAdd, (event, paths: unknown): AttachmentAddResult => {
+  ipcMain.handle(IPC_CHANNELS.filesAdd, async (event, paths: unknown): Promise<AttachmentAddResult> => {
     sessionFor(event)
-    return collectAttachments(z.array(z.string().min(1).max(1024)).max(50).parse(paths))
+    return await collectAttachments(z.array(z.string().min(1).max(1024)).max(50).parse(paths))
   })
 
   ipcMain.handle(
@@ -1993,11 +2007,11 @@ export function registerSheetsIpc(): void {
   // path): persisted to a temp file, then go through the regular attachment flow
   ipcMain.handle(
     IPC_CHANNELS.filesAddPastedImage,
-    (event, data: unknown, ext: unknown): AttachmentAddResult => {
+    async (event, data: unknown, ext: unknown): Promise<AttachmentAddResult> => {
       sessionFor(event)
       const filePath = savePastedImage(data, ext)
       return filePath
-        ? collectAttachments([filePath])
+        ? await collectAttachments([filePath])
         : { accepted: [], rejected: [tm('errNotImage')] }
     },
   )

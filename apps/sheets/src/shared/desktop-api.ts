@@ -1816,6 +1816,12 @@ export type WorkbookExportPdfResult = z.infer<typeof workbookExportPdfResultSche
  * passed to the model as a multimodal image with the user message */
 export const ATTACHMENT_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 
+export interface TocItem {
+  level: 1 | 2
+  title: string
+  offset: number
+}
+
 export interface AttachmentMeta {
   /** Absolute local path; the file never leaves the machine */
   path: string
@@ -1823,6 +1829,8 @@ export interface AttachmentMeta {
   /** Lowercase extension, no dot */
   ext: string
   sizeBytes: number
+  /** Table of Contents headings (# and ##) extracted from document text */
+  toc?: TocItem[]
 }
 
 export interface AttachmentAddResult {

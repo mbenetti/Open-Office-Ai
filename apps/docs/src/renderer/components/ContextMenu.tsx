@@ -5,6 +5,8 @@ import { fontFamiliesFor } from '../font-list'
 import { cssFontFamily } from '../line-metrics'
 import { setParaAttrs, activeParaAttrs } from './ribbon-tabs'
 import { setSelectionAlign } from '../editor/direction'
+import { cleanPastedHtml } from '../editor/clean-html'
+import { acceptCurrentRevision, rejectCurrentRevision } from '../editor/revisions'
 import { IconSparkle } from './icons'
 import { useModalKeys } from './modal-keys'
 
@@ -141,7 +143,8 @@ export function EditorContextMenu({
         const items = await navigator.clipboard.read()
         for (const item of items) {
           if (item.types.includes('text/html')) {
-            const html = await (await item.getType('text/html')).text()
+            const rawHtml = await (await item.getType('text/html')).text()
+            const html = cleanPastedHtml(rawHtml)
             editor
               .chain()
               .focus()
@@ -221,6 +224,17 @@ export function EditorContextMenu({
       <div className="ctx-sep" />
       {item(t('appFontMenu'), { key: '⌘D', onClick: run(onFontDialog) })}
       {item(t('appParagraphMenu'), { key: '⌥⌘M', onClick: run(onParagraphDialog) })}
+      {(editor.isActive('ins') || editor.isActive('del') || editor.isActive('rprChange')) && (
+        <>
+          <div className="ctx-sep" />
+          {item(t('ribbonAccept') || 'Accept Change', {
+            onClick: run(() => acceptCurrentRevision(editor)),
+          })}
+          {item(t('ribbonReject') || 'Reject Change', {
+            onClick: run(() => rejectCurrentRevision(editor)),
+          })}
+        </>
+      )}
       {editor.isActive('instrField') && onUpdateFields && (
         <>
           <div className="ctx-sep" />

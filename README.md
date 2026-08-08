@@ -40,8 +40,11 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ## Key Features & Enhancements
 
-### 1. LLM-Assisted Multi-Location Editing
+### 1. LLM-Assisted Multi-Location Editing & Smart Attachments
 * **Multi-Selection Context**: When selecting multiple cells in Sheets, multiple paragraphs in Word, or multiple elements in PowerPoint/PDF, the entire selection is packaged and sent to the LLM. This allows the AI to answer questions across multiple contexts simultaneously (e.g., answering a question in one cell based on the content of another).
+* **Persistent Selection & Caret Highlighting**: Typing in the AI chatbox maintains a visible selection highlight (`.doc-selection-unfocused`) and cursor caret (`.doc-cursor-unfocused`) in the Word document. AI instructions ("rewrite this selection", "format this paragraph") execute against the exact active selection scope.
+* **Attachment Table of Contents (TOC) Navigation**: Local attachment parsing extracts Level 1 (`#`) and Level 2 (`##`) headings with exact character offsets. The AI agent receives the document TOC directly in its per-turn prompt context and can jump directly to specific sections by heading title or offset.
+* **Transparent Font & Formatting Inheritance**: Pasted external HTML and AI text insertions automatically strip foreign font-family, font-size, and line-height overrides, ensuring new text seamlessly adopts the document's and cursor's current font configuration. Context menus and ribbon controls support 1-click **Accept / Reject Change** for AI tracked revisions (`ins`/`del`).
 * **Byte-Preserving Round Trip**: Manual and AI edits are applied as surgical patches. Only dirty paragraphs or cells are modified, keeping the rest of the original file byte-for-byte identical. Opening, editing, and saving never breaks original layouts, tracked changes, comments, styles, or equations.
 
 ### 2. Knowledge Base & Collection Management

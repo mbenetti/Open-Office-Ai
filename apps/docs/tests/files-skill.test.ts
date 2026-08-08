@@ -70,6 +70,47 @@ describe('files skill', () => {
     expect(readAttachment).not.toHaveBeenCalled()
   })
 
+  it('lists attachments with TOC in context when available', () => {
+    const attWithToc: AttachmentMeta = {
+      ...ATT,
+      toc: [
+        { level: 1, title: 'Overview', offset: 0 },
+        { level: 2, title: 'Details', offset: 120 },
+      ],
+    }
+    const skill = createFilesSkill(() => [attWithToc])
+    const context = skill.buildContext?.() ?? ''
+    expect(context).toContain('notes.md')
+    expect(context).toContain('Table of Contents:')
+    expect(context).toContain('- # Overview (offset: 0)')
+    expect(context).toContain('- ## Details (offset: 120)')
+  })
+
+  it('jumps directly to TOC heading when specified', async () => {
+    const attWithToc: AttachmentMeta = {
+      ...ATT,
+      toc: [
+        { level: 1, title: 'Overview', offset: 0 },
+        { level: 2, title: 'Details', offset: 500 },
+      ],
+    }
+    const readAttachment = mockDesktop({
+      ok: true,
+      name: 'notes.md',
+      totalChars: 1000,
+      offset: 500,
+      text: '## Details\nSome detailed content',
+    })
+    const skill = createFilesSkill(() => [attWithToc])
+    const result = await skill.executeTool({
+      id: 't-toc',
+      name: 'read_attachment',
+      input: { index: 0, heading: 'Details' },
+    })
+    expect(readAttachment).toHaveBeenCalledWith('/tmp/notes.md', 500, 24_000)
+    expect(result.isError).toBeFalsy()
+  })
+
   it('surfaces main-process parse errors as tool errors', async () => {
     mockDesktop({ ok: false, error: 'File exceeds the size limit' })
     const skill = createFilesSkill(() => [ATT])

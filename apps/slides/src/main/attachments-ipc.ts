@@ -8,7 +8,7 @@
 import { app, dialog, ipcMain } from 'electron'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { parseFileToText } from '@genoffice/file-parse'
+import { extractToc, parseFileToText } from '@genoffice/file-parse'
 import type {
   AttachmentAddResult,
   AttachmentImageResult,
@@ -96,13 +96,27 @@ function statAttachment(filePath: string): { meta?: AttachmentMeta; error?: stri
   }
 }
 
-function collectAttachments(paths: string[]): AttachmentAddResult {
+async function collectAttachments(paths: string[]): Promise<AttachmentAddResult> {
   const accepted: AttachmentMeta[] = []
   const rejected: string[] = []
   for (const p of paths) {
     const { meta, error } = statAttachment(p)
-    if (meta) accepted.push(meta)
-    else if (error) rejected.push(error)
+    if (meta) {
+      if (!ATTACHMENT_IMAGE_EXTS.has(meta.ext)) {
+        try {
+          const text = await extractAttachmentText(p)
+          const toc = extractToc(text)
+          if (toc.length > 0) {
+            meta.toc = toc
+          }
+        } catch {
+          // ignore extraction error for TOC calculation
+        }
+      }
+      accepted.push(meta)
+    } else if (error) {
+      rejected.push(error)
+    }
   }
   return { accepted, rejected }
 }
@@ -219,10 +233,10 @@ export function registerAttachmentIpc(): void {
   // Clipboard-pasted images (screenshots and other bitmaps without a local path): saved to a temp file then take the regular attachment chain
   ipcMain.handle(
     'slides:files-add-pasted-image',
-    (_e, data: unknown, ext: unknown): AttachmentAddResult => {
+    async (_e, data: unknown, ext: unknown): Promise<AttachmentAddResult> => {
       const filePath = savePastedImage(data, ext)
       return filePath
-        ? collectAttachments([filePath])
+        ? await collectAttachments([filePath])
         : { accepted: [], rejected: [tm('errNotImage')] }
     },
   )

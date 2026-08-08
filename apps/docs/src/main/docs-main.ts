@@ -29,7 +29,7 @@ import type {
   SaveDialogOptions,
   WebContents,
 } from 'electron'
-import { parseFileToText } from '@genoffice/file-parse'
+import { extractToc, parseFileToText } from '@genoffice/file-parse'
 import {
   AiCreditsError,
   AiTimeoutError,
@@ -2377,13 +2377,27 @@ function statAttachment(filePath: string): { meta?: AttachmentMeta; error?: stri
   }
 }
 
-function collectAttachments(paths: string[]): AttachmentAddResult {
+async function collectAttachments(paths: string[]): Promise<AttachmentAddResult> {
   const accepted: AttachmentMeta[] = []
   const rejected: string[] = []
   for (const p of paths) {
     const { meta, error } = statAttachment(p)
-    if (meta) accepted.push(meta)
-    else if (error) rejected.push(error)
+    if (meta) {
+      if (!ATTACHMENT_IMAGE_EXTS.has(meta.ext)) {
+        try {
+          const text = await extractAttachmentText(p)
+          const toc = extractToc(text)
+          if (toc.length > 0) {
+            meta.toc = toc
+          }
+        } catch {
+          // ignore extraction error for TOC calculation
+        }
+      }
+      accepted.push(meta)
+    } else if (error) {
+      rejected.push(error)
+    }
   }
   return { accepted, rejected }
 }
@@ -3112,7 +3126,7 @@ export function registerDocsIpc(): void {
   // clipboard-pasted images (screenshots and other bitmaps with no local path): saved to a temp file then use the regular attachment path
   ipcMain.handle(
     'files:add-pasted-image',
-    (_event, data: unknown, ext: unknown): AttachmentAddResult => {
+    async (_event, data: unknown, ext: unknown): Promise<AttachmentAddResult> => {
       const filePath = savePastedImage(data, ext)
       return filePath
         ? collectAttachments([filePath])
