@@ -137,6 +137,19 @@ export const AGENT_TOOLS: AgentToolDef[] = [
     },
   },
   {
+    name: 'generate_image',
+    description:
+      'Generate an AI image from a text prompt and insert it directly into the document at the active cursor or selection location.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: 'detailed prompt describing the image to generate' },
+        maxWidthPx: { type: 'integer', description: 'maximum width in pixels, default 480' },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
     name: 'insert_chart',
     description:
       'Insert a chart (saved as a native Word chart). Data must be real: from the document content or web_search results — do not make up numbers.',
@@ -332,6 +345,102 @@ async function executeAsyncTool(
         summary: t('aiSumImageSearchDone', { query, count: r.images.length }),
       }
     }
+    case 'generate_image': {
+      const prompt = String(call.input.prompt ?? '').trim()
+      if (!prompt) return fail('Generate Image', 'prompt must not be empty')
+
+      let base64Data: { base64: string; mime: string } | null = null
+      let imageUrl: string | null = null
+
+      try {
+        const settings = await window.desktop.getAiSettings()
+        const activeConfig = settings?.provider ? settings.providers?.[settings.provider] : undefined
+        const apiKey = activeConfig?.apiKey?.trim()
+        const baseUrl = activeConfig?.baseUrl?.replace(/\/$/, '') || 'https://api.openai.com/v1'
+
+        if (apiKey) {
+          const res = await fetch(`${baseUrl}/images/generations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'dall-e-3',
+              prompt,
+              n: 1,
+              size: '1024x1024',
+              response_format: 'b64_json',
+            }),
+          })
+          if (res.ok) {
+            const json = (await res.json()) as { data?: Array<{ b64_json?: string; url?: string }> }
+            const item = json.data?.[0]
+            if (item?.b64_json) {
+              base64Data = { base64: item.b64_json, mime: 'image/png' }
+            } else if (item?.url) {
+              imageUrl = item.url
+            }
+          }
+        }
+      } catch {
+        /* fallback on error */
+      }
+
+      if (!base64Data && !imageUrl) {
+        const r = await window.desktop.imageSearch(prompt, 1)
+        if (r.method !== 'error' && r.images.length > 0 && r.images[0]?.imageUrl) {
+          imageUrl = r.images[0].imageUrl
+        }
+      }
+
+      if (imageUrl && !base64Data) {
+        const fetched = await window.desktop.fetchImage(imageUrl)
+        if (fetched) {
+          base64Data = { base64: fetched.base64, mime: fetched.mime }
+        }
+      }
+
+      if (!base64Data) {
+        return fail('Generate Image', 'could not generate or fetch an image for this prompt')
+      }
+
+      const dataUrl = `data:${base64Data.mime};base64,${base64Data.base64}`
+      const maxW = Number(call.input.maxWidthPx) || 480
+      try {
+        const natural = await imageSizeOf(dataUrl)
+        if (signal?.aborted)
+          return fail('Generate Image', 'stopped by the user; the image was not inserted')
+        const scale = Math.min(1, maxW / natural.width)
+        const w = Math.round(natural.width * scale)
+        const h = Math.round(natural.height * scale)
+
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: 'docProtected',
+            attrs: {
+              docxIndex: null,
+              blockType: 'image',
+              label: 'Image (AI generated)',
+              imageDataUrl: dataUrl,
+              imageWidthPx: w,
+              imageHeightPx: h,
+              genImage: { base64: base64Data.base64, mime: base64Data.mime, widthPx: w, heightPx: h },
+            },
+          })
+          .run()
+
+        return {
+          output: `Generated and inserted the image (${w}×${h}px).`,
+          mutated: true,
+          summary: `Generated image for "${prompt}"`,
+        }
+      } catch {
+        return fail('Generate Image', 'the generated image could not be decoded')
+      }
+    }
     case 'insert_image': {
       const url = String(call.input.url ?? '')
       if (!/^https?:\/\//.test(url)) return fail(t('aiSumInsertImage'), 'invalid url')
@@ -403,7 +512,12 @@ export function executeTool(
   // synchronously (doesn't break existing tests). No settle here: marking the doc
   // seen after the long download would baptize user edits made meanwhile —
   // insert_image maintains the baseline itself right at its synchronous write.
-  if (call.name === 'web_search' || call.name === 'image_search' || call.name === 'insert_image') {
+  if (
+    call.name === 'web_search' ||
+    call.name === 'image_search' ||
+    call.name === 'insert_image' ||
+    call.name === 'generate_image'
+  ) {
     return executeAsyncTool(editor, call, signal)
   }
   return settle(executeSyncTool(editor, call, numIds, track))
