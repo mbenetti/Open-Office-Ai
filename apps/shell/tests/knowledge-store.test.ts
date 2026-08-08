@@ -138,4 +138,37 @@ describe('KnowledgeStore', () => {
     expect(matches).toHaveLength(1)
     expect(matches[0]!.knowledgeBaseId).toBe('kb-finance')
   })
+
+  it('saves permanent .md copy, extracts TOC, and cleans up .md file on deletion', async () => {
+    mkdirSync(TEST_DIR, { recursive: true })
+    const sampleFilePath = join(TEST_DIR, 'sample.md')
+    const sampleText = `# Introduction\nWelcome.\n\n## Section 1\nContent for section 1.\n\n# Conclusion\nFinal notes.`
+    writeFileSync(sampleFilePath, sampleText, 'utf-8')
+
+    const store = new KnowledgeStore(TEST_STORE_PATH)
+    const res = await store.addDocument(sampleFilePath, 'default-kb')
+    expect(res.ok).toBe(true)
+
+    if (res.ok) {
+      expect(res.document.toc).toBeDefined()
+      expect(res.document.toc).toEqual([
+        { level: 1, title: 'Introduction', offset: 0 },
+        { level: 2, title: 'Section 1', offset: 25 },
+        { level: 1, title: 'Conclusion', offset: 62 },
+      ])
+      expect(res.document.mdPath).toBeDefined()
+      expect(existsSync(res.document.mdPath!)).toBe(true)
+
+      // Test reading full text for TOC navigation
+      const readRes = await store.readDocumentText(res.document.id)
+      expect(readRes.ok).toBe(true)
+      expect(readRes.text).toBe(sampleText)
+
+      // Delete document and verify .md file cleanup
+      const mdPath = res.document.mdPath!
+      const deleted = await store.deleteDocument(res.document.id)
+      expect(deleted).toBe(true)
+      expect(existsSync(mdPath)).toBe(false)
+    }
+  })
 })

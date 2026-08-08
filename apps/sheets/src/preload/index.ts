@@ -339,6 +339,13 @@ const desktopApi: DesktopApi = {
     const result: unknown = await ipcRenderer.invoke('knowledge:list-kb')
     return Array.isArray(result) ? result : []
   },
+  async listKnowledgeDocuments(knowledgeBaseId?: string) {
+    const result: unknown = await ipcRenderer.invoke('knowledge:list', knowledgeBaseId)
+    return Array.isArray(result) ? result : []
+  },
+  async readKnowledgeDocument(docIdOrPath: string, offset: number, maxChars?: number) {
+    return (await ipcRenderer.invoke('knowledge:read-doc', { docIdOrPath, offset, maxChars })) as any
+  },
   listSkills: () => ipcRenderer.invoke('skills:list'),
   getSkill: (name: string) => ipcRenderer.invoke('skills:get', name),
   async searchKnowledgeBase(query, knowledgeBaseId, topK) {

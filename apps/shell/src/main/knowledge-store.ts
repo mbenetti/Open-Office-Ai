@@ -1,7 +1,7 @@
-import { readFile, writeFile, mkdir, stat, rename } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, stat, rename, unlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
-import { parseFileToText, chunkMarkdownDocument, type DocumentChunk } from '@genoffice/file-parse'
+import { parseFileToText, chunkMarkdownDocument, extractToc, type DocumentChunk, type TocItem } from '@genoffice/file-parse'
 import { generateEmbedding, cosineSimilarity, type EmbeddingProviderConfig } from '@genoffice/ai-provider'
 
 export interface KnowledgeBaseFolder {
@@ -21,6 +21,8 @@ export interface KnowledgeDocument {
   addedAtMs: number
   chunkCount: number
   totalChars: number
+  toc?: TocItem[] | undefined
+  mdPath?: string | undefined
 }
 
 export interface KnowledgeChunkRecord {
@@ -65,6 +67,7 @@ export class KnowledgeStore {
   private data: StoredKnowledgeData = { folders: [], documents: [], chunks: [] }
   private loaded = false
   private lastMtimeMs = 0
+  private kbDocCache = new Map<string, { text: string; mtimeMs: number }>()
 
   constructor(storePath: string) {
     this.storePath = storePath
@@ -177,8 +180,20 @@ export class KnowledgeStore {
     if (id === DEFAULT_FOLDER_ID) return false // protect default folder
     const initialLen = this.data.folders.length
     this.data.folders = this.data.folders.filter((f) => f.id !== id)
+
     // delete docs and chunks in this folder
-    const docIds = new Set(this.data.documents.filter((d) => d.knowledgeBaseId === id).map((d) => d.id))
+    const docsToDelete = this.data.documents.filter((d) => d.knowledgeBaseId === id)
+    for (const doc of docsToDelete) {
+      if (doc.mdPath && existsSync(doc.mdPath)) {
+        try {
+          await unlink(doc.mdPath)
+        } catch {
+          /* ignore file removal error */
+        }
+      }
+    }
+
+    const docIds = new Set(docsToDelete.map((d) => d.id))
     this.data.documents = this.data.documents.filter((d) => d.knowledgeBaseId !== id)
     this.data.chunks = this.data.chunks.filter((c) => !docIds.has(c.documentId))
     if (this.data.folders.length !== initialLen) {
@@ -252,6 +267,17 @@ export class KnowledgeStore {
     const normExt: 'pdf' | 'md' = ext === 'pdf' ? 'pdf' : 'md'
     const totalChars = chunks.reduce((acc: number, c: DocumentChunk) => acc + c.charCount, 0)
 
+    // Save permanent .md file copy of the full extracted text for TOC/range navigation
+    const mdDir = join(this.storePath, '..', 'md-documents')
+    if (!existsSync(mdDir)) {
+      await mkdir(mdDir, { recursive: true })
+    }
+    const mdPath = join(mdDir, `${docId}.md`)
+    await writeFile(mdPath, parsed.text, 'utf-8')
+
+    // Extract Table of Contents (# and ## headings) with character offsets
+    const toc = extractToc(parsed.text)
+
     const document: KnowledgeDocument = {
       id: docId,
       knowledgeBaseId: targetFolderId,
@@ -262,6 +288,8 @@ export class KnowledgeStore {
       addedAtMs: Date.now(),
       chunkCount: chunks.length,
       totalChars,
+      toc: toc.length > 0 ? toc : undefined,
+      mdPath,
     }
 
     const chunkRecords: KnowledgeChunkRecord[] = []
@@ -313,6 +341,14 @@ export class KnowledgeStore {
 
   async deleteDocument(id: string): Promise<boolean> {
     await this.ensureLoaded(true)
+    const doc = this.data.documents.find((d) => d.id === id)
+    if (doc?.mdPath && existsSync(doc.mdPath)) {
+      try {
+        await unlink(doc.mdPath)
+      } catch {
+        /* ignore file removal error */
+      }
+    }
     const initialLen = this.data.documents.length
     this.data.documents = this.data.documents.filter((d) => d.id !== id)
     this.data.chunks = this.data.chunks.filter((c) => c.documentId !== id)
@@ -321,6 +357,36 @@ export class KnowledgeStore {
       return true
     }
     return false
+  }
+
+  async readDocumentText(
+    docIdOrPath: string,
+  ): Promise<{ ok: boolean; text?: string; error?: string }> {
+    await this.ensureLoaded(true)
+    const doc = this.data.documents.find(
+      (d) => d.id === docIdOrPath || d.path === docIdOrPath || d.mdPath === docIdOrPath || d.name === docIdOrPath,
+    )
+    if (!doc) {
+      return { ok: false, error: 'Document not found in Knowledge Base.' }
+    }
+
+    const targetPath = doc.mdPath && existsSync(doc.mdPath) ? doc.mdPath : doc.path
+    try {
+      const st = await stat(targetPath)
+      const cached = this.kbDocCache.get(targetPath)
+      if (cached && cached.mtimeMs === st.mtimeMs) {
+        return { ok: true, text: cached.text }
+      }
+      const text = await readFile(targetPath, 'utf-8')
+      this.kbDocCache.set(targetPath, { text, mtimeMs: st.mtimeMs })
+      if (this.kbDocCache.size > 16) {
+        const oldest = this.kbDocCache.keys().next().value
+        if (oldest) this.kbDocCache.delete(oldest)
+      }
+      return { ok: true, text }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
   }
 
   /**

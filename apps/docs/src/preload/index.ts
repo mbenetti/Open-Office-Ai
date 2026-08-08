@@ -81,6 +81,9 @@ const api: DesktopApi = {
   readAttachmentImage: (path: string) => ipcRenderer.invoke('files:read-image', path),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   listKnowledgeBases: () => ipcRenderer.invoke('knowledge:list-kb'),
+  listKnowledgeDocuments: (knowledgeBaseId?: string) => ipcRenderer.invoke('knowledge:list', knowledgeBaseId),
+  readKnowledgeDocument: (docIdOrPath: string, offset: number, maxChars?: number) =>
+    ipcRenderer.invoke('knowledge:read-doc', { docIdOrPath, offset, maxChars }),
   listSkills: () => ipcRenderer.invoke('skills:list'),
   getSkill: (name: string) => ipcRenderer.invoke('skills:get', name),
   searchKnowledgeBase: (query, knowledgeBaseId, topK) =>

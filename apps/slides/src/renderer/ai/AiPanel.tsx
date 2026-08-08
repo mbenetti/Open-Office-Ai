@@ -1031,6 +1031,10 @@ export function AiPanel({
           (query, kbId, topK) =>
             (window as any).desktop?.searchKnowledgeBase?.(query, kbId, topK) ?? Promise.resolve([]),
           () => selectedKbIdRef.current || undefined,
+          (kbId) => (window as any).desktop?.listKnowledgeDocuments?.(kbId) ?? Promise.resolve([]),
+          (docId, offset, maxChars) =>
+            (window as any).desktop?.readKnowledgeDocument?.(docId, offset, maxChars) ??
+            Promise.resolve({ ok: false }),
         ),
         createSkillsSkill(
           () => (window as any).desktop?.listSkills?.() ?? Promise.resolve([]),

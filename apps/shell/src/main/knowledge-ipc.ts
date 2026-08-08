@@ -102,6 +102,25 @@ export function registerKnowledgeIpc(): void {
     return store.deleteDocument(id)
   })
 
+  ipcMain.handle('knowledge:read-doc', async (_event, opts: unknown) => {
+    const o = opts as { docIdOrPath?: string; offset?: number; maxChars?: number } | undefined
+    if (!o?.docIdOrPath) return { ok: false, error: 'docIdOrPath is required' }
+    const offset = Math.max(0, Number(o.offset) || 0)
+    const maxChars = Math.min(Math.max(1, Number(o.maxChars) || 24000), 48000)
+    const result = await store.readDocumentText(o.docIdOrPath)
+    if (!result.ok || !result.text) {
+      return { ok: false, error: result.error ?? 'Failed to read document' }
+    }
+    const totalChars = result.text.length
+    const slice = result.text.slice(offset, offset + maxChars)
+    return {
+      ok: true,
+      totalChars,
+      offset,
+      text: slice,
+    }
+  })
+
   ipcMain.handle('knowledge:move-doc', (_event, opts: unknown) => {
     const o = opts as { docId?: string; knowledgeBaseId?: string } | undefined
     if (!o?.docId || !o.knowledgeBaseId) return false

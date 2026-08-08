@@ -811,6 +811,10 @@ export function App(): React.JSX.Element {
           (query, kbId, topK) =>
             window.desktopApi?.searchKnowledgeBase?.(query, kbId, topK) ?? Promise.resolve([]),
           () => selectedKbIdRef.current || undefined,
+          (kbId) => window.desktopApi?.listKnowledgeDocuments?.(kbId) ?? Promise.resolve([]),
+          (docId, offset, maxChars) =>
+            window.desktopApi?.readKnowledgeDocument?.(docId, offset, maxChars) ??
+            Promise.resolve({ ok: false }),
         ),
         createSkillsSkill(
           () => window.desktopApi?.listSkills?.() ?? Promise.resolve([]),

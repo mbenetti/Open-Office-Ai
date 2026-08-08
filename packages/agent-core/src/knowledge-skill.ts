@@ -9,10 +9,27 @@ export interface KnowledgeMatch {
   similarityScore: number
 }
 
-const KNOWLEDGE_SYSTEM_PROMPT = `## Knowledge Base RAG Search
-You have access to the search_knowledge_base tool to query local vectorized knowledge base documents.
-- When answering factual questions, searching for past notes, or requiring document context, call search_knowledge_base with a concise query.
-- Use the returned document names, header paths, and text passages to formulate your answer. Citing sources is encouraged.`
+export interface KnowledgeDocInfo {
+  id: string
+  name: string
+  sizeBytes: number
+  totalChars: number
+  toc?: Array<{ level: 1 | 2; title: string; offset: number }> | undefined
+}
+
+const KNOWLEDGE_SYSTEM_PROMPT = `## Knowledge Base Documents & RAG Search
+You have access to local Knowledge Base documents and search tools:
+1. search_knowledge_base: Perform semantic vector search across Knowledge Base passages.
+2. list_knowledge_documents: List all documents in the active Knowledge Base collection along with their Table of Contents (# and ## headings with character offsets).
+3. read_knowledge_document: Read/page through a Knowledge Base document's full text content by character offset OR jump directly to a section heading title from its Table of Contents.
+
+- When answering factual questions, searching for past notes, or requiring document context, use search_knowledge_base for quick passage retrieval, or list_knowledge_documents and read_knowledge_document to inspect full document sections via Table of Contents navigation.`
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`
+}
 
 export function createKnowledgeSkill(
   searchFn: (
@@ -21,6 +38,14 @@ export function createKnowledgeSkill(
     topK?: number,
   ) => Promise<KnowledgeMatch[]>,
   getScopeKnowledgeBaseId?: () => string | undefined,
+  listDocsFn?: (
+    knowledgeBaseId?: string,
+  ) => Promise<KnowledgeDocInfo[]>,
+  readDocFn?: (
+    docIdOrPath: string,
+    offset: number,
+    maxChars?: number,
+  ) => Promise<{ ok: boolean; totalChars?: number; offset?: number; text?: string; error?: string }>,
 ): AgentSkill {
   return {
     id: 'knowledge',
@@ -45,32 +70,193 @@ export function createKnowledgeSkill(
           required: ['query'],
         },
       },
+      {
+        name: 'list_knowledge_documents',
+        description:
+          'List all documents in the active Knowledge Base collection, including their document IDs, names, sizes, total character counts, and Table of Contents (# and ## headings).',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'read_knowledge_document',
+        description:
+          'Read text content of a Knowledge Base document. Jump directly to a section heading title from the Table of Contents or pass a character offset to page through text.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            index: {
+              type: 'integer',
+              description: '0-based index of the document from list_knowledge_documents',
+            },
+            docId: {
+              type: 'string',
+              description: 'document ID or name from the Knowledge Base document list',
+            },
+            offset: {
+              type: 'integer',
+              description: 'start character position (default 0)',
+            },
+            heading: {
+              type: 'string',
+              description:
+                'heading title from the document Table of Contents to jump directly to that section',
+            },
+          },
+        },
+      },
     ],
     executeTool: async (call: AgentToolCall): Promise<ToolExecution> => {
+      const userScopeId = getScopeKnowledgeBaseId?.()
+
+      // Knowledge Base search is disabled by user
+      if (userScopeId === 'NONE' || userScopeId === 'disabled') {
+        return {
+          output: 'Knowledge Base access is currently disabled by the user.',
+          mutated: false,
+          summary: `${call.name} (disabled)`,
+        }
+      }
+
+      const targetKbId = userScopeId === 'ALL' || !userScopeId ? undefined : userScopeId
+
+      if (call.name === 'list_knowledge_documents') {
+        if (!listDocsFn) {
+          return {
+            output: 'Document listing is unavailable in this environment.',
+            isError: true,
+            summary: 'list_knowledge_documents',
+          }
+        }
+        try {
+          const docs = await listDocsFn(targetKbId)
+          if (docs.length === 0) {
+            return {
+              output: 'No documents found in the active Knowledge Base collection.',
+              mutated: false,
+              summary: 'list_knowledge_documents - 0 docs',
+            }
+          }
+          const formatted = docs.map((d, i) => {
+            let line = `${i} | ID: ${d.id} | Name: ${d.name} | Size: ${formatSize(d.sizeBytes)} | Total Chars: ${d.totalChars}`
+            if (d.toc && d.toc.length > 0) {
+              const tocLines = d.toc.map(
+                (t) =>
+                  `    ${'  '.repeat(t.level - 1)}- ${'#'.repeat(t.level)} ${t.title} (offset: ${t.offset})`,
+              )
+              line += `\n  Table of Contents:\n${tocLines.join('\n')}`
+            }
+            return line
+          })
+          return {
+            output: `Active Knowledge Base Documents (${docs.length}):\n\n${formatted.join('\n\n')}`,
+            mutated: false,
+            summary: `list_knowledge_documents - ${docs.length} docs`,
+          }
+        } catch (err) {
+          return {
+            output: `Failed to list Knowledge Base documents: ${err instanceof Error ? err.message : String(err)}`,
+            isError: true,
+            summary: 'list_knowledge_documents error',
+          }
+        }
+      }
+
+      if (call.name === 'read_knowledge_document') {
+        if (!readDocFn) {
+          return {
+            output: 'Document reading is unavailable in this environment.',
+            isError: true,
+            summary: 'read_knowledge_document',
+          }
+        }
+
+        const docs = listDocsFn ? await listDocsFn(targetKbId) : []
+        let doc: KnowledgeDocInfo | undefined = undefined
+
+        if (call.input.docId && typeof call.input.docId === 'string') {
+          const q = call.input.docId.toLowerCase().trim()
+          doc = docs.find(
+            (d) => d.id === q || d.name.toLowerCase() === q || d.name.toLowerCase().includes(q),
+          )
+        }
+        if (!doc && call.input.index !== undefined) {
+          const idx = Number(call.input.index)
+          if (Number.isInteger(idx) && idx >= 0 && idx < docs.length) {
+            doc = docs[idx]
+          }
+        }
+
+        const docIdOrPath = doc ? doc.id : String(call.input.docId ?? call.input.index ?? '')
+        if (!docIdOrPath) {
+          return {
+            output: 'Document index or ID is required (see list_knowledge_documents).',
+            isError: true,
+            summary: 'read_knowledge_document',
+          }
+        }
+
+        let offset = Math.max(0, Number(call.input.offset) || 0)
+        if (
+          call.input.heading &&
+          typeof call.input.heading === 'string' &&
+          doc?.toc &&
+          doc.toc.length > 0
+        ) {
+          const target = call.input.heading.toLowerCase().trim()
+          const match =
+            doc.toc.find((t) => t.title.toLowerCase() === target) ||
+            doc.toc.find((t) => t.title.toLowerCase().includes(target))
+          if (match) {
+            offset = match.offset
+          }
+        }
+
+        try {
+          const result = await readDocFn(docIdOrPath, offset, 24000)
+          if (!result.ok) {
+            return {
+              output: result.error ?? 'Failed to read Knowledge Base document.',
+              isError: true,
+              summary: `read_knowledge_document (${doc ? doc.name : docIdOrPath})`,
+            }
+          }
+          const docName = doc ? doc.name : docIdOrPath
+          const end = (result.offset ?? 0) + (result.text?.length ?? 0)
+          const header = `Knowledge Base Document "${docName}", total characters ${result.totalChars}, this slice ${result.offset}-${end}${
+            end < (result.totalChars ?? 0)
+              ? ' (not finished, continue with offset=' + end + ')'
+              : ' (end of file)'
+          }`
+          return {
+            output: `${header}\n---\n${result.text ?? ''}`,
+            mutated: false,
+            summary: `read_knowledge_document ("${docName}")`,
+          }
+        } catch (err) {
+          return {
+            output: `Error reading Knowledge Base document: ${err instanceof Error ? err.message : String(err)}`,
+            isError: true,
+            summary: 'read_knowledge_document error',
+          }
+        }
+      }
+
       if (call.name !== 'search_knowledge_base') {
         return { output: `Unknown tool: ${call.name}`, isError: true, summary: call.name }
       }
 
-      const userScopeId = getScopeKnowledgeBaseId?.()
-
-      // Option 1: Knowledge Base search is disabled by user
-      if (userScopeId === 'NONE' || userScopeId === 'disabled') {
+      const query = String(call.input.query ?? '').trim()
+      if (!query) {
         return {
-          output: 'Knowledge Base search is currently disabled by the user.',
-          mutated: false,
-          summary: 'search_knowledge_base (disabled)',
+          output: 'Query string must not be empty.',
+          isError: true,
+          summary: 'search_knowledge_base',
         }
       }
 
-      const query = String(call.input.query ?? '').trim()
-      if (!query) {
-        return { output: 'Query string must not be empty.', isError: true, summary: 'search_knowledge_base' }
-      }
-
       const topK = Math.max(1, Math.min(20, Number(call.input.topK) || 5))
-
-      // Option 2 (ALL) vs Option 3 (Specific Collection ID)
-      const targetKbId = userScopeId === 'ALL' || !userScopeId ? undefined : userScopeId
 
       try {
         const matches = await searchFn(query, targetKbId, topK)

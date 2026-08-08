@@ -247,6 +247,14 @@ export interface DesktopApi {
   /** absolute path of a File dropped onto the window (Electron webUtils) */
   getPathForFile(file: File): string
   listKnowledgeBases?: () => Promise<Array<{ id: string; name: string }>>
+  listKnowledgeDocuments?: (
+    knowledgeBaseId?: string,
+  ) => Promise<Array<{ id: string; name: string; sizeBytes: number; totalChars: number; toc?: Array<{ level: 1 | 2; title: string; offset: number }> }>>
+  readKnowledgeDocument?: (
+    docIdOrPath: string,
+    offset: number,
+    maxChars?: number,
+  ) => Promise<{ ok: boolean; totalChars?: number; offset?: number; text?: string; error?: string }>
   listSkills?: () => Promise<Array<{ id: string; name: string; description: string }>>
   getSkill?: (name: string) => Promise<{
     id: string
