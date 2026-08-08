@@ -49,9 +49,10 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ### 2. Knowledge Base & Collection Management
 * **Collection Workspace**: Create, rename, delete, and organize knowledge bases (collections) directly from the unified Upload Document tab.
-* **SQLite Storage**: All knowledge base metadata, collection structures, document indices, and chat histories are persisted locally in a robust SQLite database.
-* **Navigation Tree**: Navigate your knowledge bases and documents using an intuitive left-panel tree structure.
-* **Document Preview & TOC**: Preview complete documents or individual chunks. Document previews feature an interactive, clickable Table of Contents (TOC) on the left panel for rapid navigation.
+* **SQLite & Permanent Storage**: All knowledge base metadata, collection structures, document indices, and chat histories are persisted in SQLite. Ingested documents save permanent `.md` file copies alongside extracted Level 1 (`#`) and Level 2 (`##`) Table of Contents headings with character offsets.
+* **Synchronized Deletion**: Deleting documents or collection folders automatically purges SQLite metadata, vector chunks, and disk `.md` files.
+* **KB Document TOC Navigation & Paging**: In addition to semantic RAG vector search, the AI chatbot can list collection documents (`list_knowledge_documents`) with TOCs and jump directly to specific sections by heading title or character range (`read_knowledge_document`) using concise IDs (`doc-XXXXXXXX`). In-memory text caching guarantees instant reading.
+* **Navigation Tree & Preview**: Navigate your knowledge bases and documents using an intuitive left-panel tree structure with interactive TOC document previews.
 
 ![Screenshot](./ing/Screenshot2.png)
 
@@ -64,8 +65,9 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 * **Skills Library**: Create, modify, and delete reusable AI skills in a dedicated tab.
 * **Slash Autocomplete**: Recall skills on demand in the chatbot using the `/` command. Autocomplete lists available skills as you type (e.g., typing `/R` filters down to `/RFx_Analyzer`), preventing typing mistakes.
 
-### 5. LLM & Embedding Configuration Providers
+### 5. LLM, Search & Embedding Configuration
 * **Custom Endpoints**: Configure custom OpenAI-compatible endpoints, local Ollama instances, and API keys for both LLM reasoning and embedding models.
+* **Cascading Web Search**: Configurable search engine cascade: **Tavily API** (first, if key provided) → **Serper API** (Google Search) → **DuckDuckGo** (default fallback, no API keys required), managed via the dedicated Web Search settings tab.
 * **Ollama & vLLM Integration**: First-class, dedicated providers for local Ollama and vLLM endpoints with dynamic placeholders, automatic default base URLs, and key-free execution support across all editors (Docs, Sheets, Slides, PDF).
 * **Disable Thinking**: A robust, multi-level "Disable Thinking" option configurable directly from the LLM Endpoint settings panel. It sends the official `"think": false` parameter to Ollama, `"chat_template_kwargs"` / `"extra_body"` to vLLM, prepends special no-thinking tokens (such as `<no_thinking>`, `<not_think>`) to Qwen models, and uses a stateful stream filter to strip `<think>...</think>` blocks on the fly.
 * **Privacy & Control**: Run fully local models or connect to your preferred cloud providers.
