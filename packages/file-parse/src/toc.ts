@@ -1,3 +1,5 @@
+import { isInvalidPageHeaderTitle } from './page-header'
+
 export interface TocItem {
   level: 1 | 2
   title: string
@@ -44,11 +46,13 @@ export function extractToc(text: string): TocItem[] {
       if (match) {
         const level = match[1]!.length as 1 | 2
         const title = match[2]!.trim()
-        toc.push({
-          level,
-          title,
-          offset,
-        })
+        if (!isInvalidPageHeaderTitle(title)) {
+          toc.push({
+            level,
+            title,
+            offset,
+          })
+        }
       }
     }
 

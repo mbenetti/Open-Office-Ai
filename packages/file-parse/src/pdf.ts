@@ -204,9 +204,7 @@ export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
         formattedLines.push(out)
       }
 
-      if (!pageHasHeader) {
-        formattedLines.unshift(`# Page ${i}`)
-      }
+
 
       pagesMarkdown.push(formattedLines.join('\n'))
       page.cleanup()

@@ -1,3 +1,5 @@
+import { isInvalidPageHeaderTitle } from './page-header'
+
 export interface DocumentChunk {
   chunkIndex: number
   headerPath: string
@@ -243,18 +245,20 @@ export function chunkMarkdownDocument(
 
     const match = !inCodeBlock && !inMathBlock ? line.match(/^(#{1,6})\s+(.+)$/) : null
     if (match) {
-      flush()
       const level = match[1]!.length
       const title = match[2]!.trim()
-      const node: HeaderNode = { level, title, rawLine: line }
+      if (!isInvalidPageHeaderTitle(title)) {
+        flush()
+        const node: HeaderNode = { level, title, rawLine: line }
 
-      while (activeHeaders.length > 0 && activeHeaders.at(-1)!.level >= level) {
-        activeHeaders.pop()
+        while (activeHeaders.length > 0 && activeHeaders.at(-1)!.level >= level) {
+          activeHeaders.pop()
+        }
+        activeHeaders.push(node)
+        continue
       }
-      activeHeaders.push(node)
-    } else {
-      currentLines.push(line)
     }
+    currentLines.push(line)
   }
   flush()
 
