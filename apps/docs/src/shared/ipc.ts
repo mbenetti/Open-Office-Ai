@@ -266,6 +266,7 @@ export interface DesktopApi {
     query: string,
     knowledgeBaseId?: string,
     topK?: number,
+    options?: { mode?: 'hybrid' | 'vector' | 'fts'; scope?: 'chunks' | 'documents' },
   ) => Promise<
     Array<{
       documentId: string
@@ -276,6 +277,9 @@ export interface DesktopApi {
       headerPath: string
       text: string
       similarityScore: number
+      scoreType?: 'RRF Score' | 'Cosine Similarity' | 'BM25 Score'
+      searchMode?: 'hybrid' | 'vector' | 'fts'
+      searchScope?: 'chunks' | 'documents'
     }>
   >
   /** View → New Tab: open another docs tab, optionally loading the same document */

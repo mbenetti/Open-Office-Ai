@@ -115,6 +115,7 @@ export interface KnowledgeApi {
     query: string,
     knowledgeBaseId?: string | string[],
     topK?: number,
+    options?: { mode?: 'hybrid' | 'vector' | 'fts'; scope?: 'chunks' | 'documents' },
   ): Promise<SearchResultMatch[]>
 }
 

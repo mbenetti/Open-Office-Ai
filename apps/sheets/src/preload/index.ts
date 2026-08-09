@@ -348,11 +348,13 @@ const desktopApi: DesktopApi = {
   },
   listSkills: () => ipcRenderer.invoke('skills:list'),
   getSkill: (name: string) => ipcRenderer.invoke('skills:get', name),
-  async searchKnowledgeBase(query, knowledgeBaseId, topK) {
+  async searchKnowledgeBase(query, knowledgeBaseId, topK, options) {
     const result: unknown = await ipcRenderer.invoke('knowledge:search', {
       query,
       knowledgeBaseId,
       topK,
+      mode: options?.mode,
+      scope: options?.scope,
     })
     return Array.isArray(result) ? result : []
   },

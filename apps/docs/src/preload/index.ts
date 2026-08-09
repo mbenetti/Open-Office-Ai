@@ -86,8 +86,14 @@ const api: DesktopApi = {
     ipcRenderer.invoke('knowledge:read-doc', { docIdOrPath, offset, maxChars }),
   listSkills: () => ipcRenderer.invoke('skills:list'),
   getSkill: (name: string) => ipcRenderer.invoke('skills:get', name),
-  searchKnowledgeBase: (query, knowledgeBaseId, topK) =>
-    ipcRenderer.invoke('knowledge:search', { query, knowledgeBaseId, topK }),
+  searchKnowledgeBase: (query, knowledgeBaseId, topK, options) =>
+    ipcRenderer.invoke('knowledge:search', {
+      query,
+      knowledgeBaseId,
+      topK,
+      mode: options?.mode,
+      scope: options?.scope,
+    }),
   openNewTab: (openPath?: string | null) => ipcRenderer.invoke('win:new', openPath ?? null),
   listDocsTabs: () => ipcRenderer.invoke('win:list'),
   focusDocsTab: (id: string) => ipcRenderer.invoke('win:focus', id),
