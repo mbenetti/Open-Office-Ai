@@ -171,4 +171,29 @@ describe('KnowledgeStore', () => {
       expect(existsSync(mdPath)).toBe(false)
     }
   })
+
+  it('performs FTS5 full-text keyword search and BM25 ranking', async () => {
+    mkdirSync(TEST_DIR, { recursive: true })
+    const f1 = join(TEST_DIR, 'f1.md')
+    const f2 = join(TEST_DIR, 'f2.md')
+    writeFileSync(
+      f1,
+      `# Security Architecture\nThis document describes OAuth2 authentication and JWT token verification.`,
+      'utf-8',
+    )
+    writeFileSync(
+      f2,
+      `# Performance Tuning\nThis document describes database indexing and query caching optimization.`,
+      'utf-8',
+    )
+
+    const store = new KnowledgeStore(TEST_STORE_PATH)
+    await store.addDocument(f1, 'default-kb')
+    await store.addDocument(f2, 'default-kb')
+
+    const results = await store.searchKnowledgeBase('OAuth2 authentication', 'default-kb')
+    expect(results.length).toBeGreaterThan(0)
+    expect(results[0]!.documentName).toBe('f1.md')
+    expect(results[0]!.text).toContain('OAuth2 authentication')
+  })
 })
