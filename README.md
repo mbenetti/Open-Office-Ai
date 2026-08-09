@@ -56,10 +56,13 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ![Screenshot](./ing/Screenshot2.png)
 
-### 3. Domain-Specific RAG (Retrieval-Augmented Generation)
-* **Local Embeddings & Vector Search**: Document chunks are vectorized using your configured embedding provider (e.g., OpenAI or local Ollama `nomic-embed-text`) and stored locally for high-performance semantic vector search.
+### 3. Domain-Specific RAG & Hybrid Search
+* **SQLite FTS5 & Vector Hybrid Search**: Combines native SQLite FTS5 full-text keyword indexing (BM25 ranking) with local vector embeddings (cosine similarity), blended seamlessly using **Reciprocal Rank Fusion (RRF)**.
 * **Multi-Collection Selection (One or More KBs)**: Filter RAG queries by selecting one, multiple specific collections, or searching across all collections simultaneously. The chatbot UI allows users to toggle specific collections on demand, feeding only relevant, highly-targeted chunks to the LLM.
-* **Semantic Workbench**: A dedicated tab ("Semantic workbench") allows you to run semantic retrieval queries, inspect chunks, and analyze vector storage results.
+* **Semantic Workbench & Term Highlighting**: A dedicated testing tab ("Semantic workbench") featuring:
+  * **Search Mode Selector**: Toggle between **Hybrid** (Vector + FTS via RRF), **Vector Only** (Cosine Similarity), and **FTS Only** (SQLite FTS5 BM25).
+  * **Target Scope**: Filter between **Chunks / Passages** and **Documents** (aggregated).
+  * **Term Highlighting**: Automatically highlights matching query keywords in yellow (`<mark>`) across header paths and retrieved text passages.
 
 ### 4. Reusable AI Skills (Slash Commands)
 * **Skills Library**: Create, modify, and delete reusable AI skills in a dedicated tab.
