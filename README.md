@@ -9,9 +9,9 @@ Open Office Ai is an independent fork of **GenOffice** under the Apache License 
 
 ## Downloads
 
-* 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai.Setup.1.0.0.exe)
-* 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.AppImage)
-* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.0/Open.Office.Ai-1.0.0-arm64.deb)
+* 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v0.1.1/Open.Office.Ai.Setup.0.1.1.exe)
+* 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v0.1.1/Open.Office.Ai-0.1.1-arm64.AppImage)
+* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v0.1.1/Open.Office.Ai-0.1.1-arm64.deb)
 * 🍏 ~~**macOS**~~ \* — not distributed as a prebuilt binary due to Apple's app signing & notarization requirements (a signed, notarized build requires a paid Apple Developer account).
 
 ### Building for your own use (macOS)
