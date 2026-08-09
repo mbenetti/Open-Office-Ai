@@ -7,6 +7,9 @@ export interface KnowledgeMatch {
   headerPath: string
   text: string
   similarityScore: number
+  scoreType?: 'RRF Score' | 'Cosine Similarity' | 'BM25 Score' | undefined
+  searchMode?: 'hybrid' | 'vector' | 'fts' | undefined
+  searchScope?: 'chunks' | 'documents' | undefined
 }
 
 export interface KnowledgeDocInfo {
@@ -19,11 +22,11 @@ export interface KnowledgeDocInfo {
 
 const KNOWLEDGE_SYSTEM_PROMPT = `## Knowledge Base Documents & RAG Search
 You have access to local Knowledge Base documents and search tools:
-1. search_knowledge_base: Perform semantic vector search across Knowledge Base passages.
+1. search_knowledge_base: Perform hybrid (vector + SQLite FTS5 full-text), vector-only, or FTS-only search across Knowledge Base passages or complete documents.
 2. list_knowledge_documents: List all documents in the active Knowledge Base collection along with their Table of Contents (# and ## headings with character offsets).
 3. read_knowledge_document: Read/page through a Knowledge Base document's full text content by character offset OR jump directly to a section heading title from its Table of Contents.
 
-- When answering factual questions, searching for past notes, or requiring document context, use search_knowledge_base for quick passage retrieval, or list_knowledge_documents and read_knowledge_document to inspect full document sections via Table of Contents navigation.`
+- When answering factual questions, searching for past notes, or requiring document context, use search_knowledge_base for search, or list_knowledge_documents and read_knowledge_document to inspect full document sections via Table of Contents navigation.`
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
@@ -36,6 +39,7 @@ export function createKnowledgeSkill(
     query: string,
     knowledgeBaseId?: string,
     topK?: number,
+    options?: { mode?: 'hybrid' | 'vector' | 'fts'; scope?: 'chunks' | 'documents' },
   ) => Promise<KnowledgeMatch[]>,
   getScopeKnowledgeBaseId?: () => string | undefined,
   listDocsFn?: (
@@ -54,17 +58,29 @@ export function createKnowledgeSkill(
       {
         name: 'search_knowledge_base',
         description:
-          'Perform semantic vector search across Knowledge Base documents to retrieve relevant passages, facts, and context.',
+          'Perform hybrid search (vector embeddings + SQLite FTS5 full-text search blended via RRF), vector-only search, or FTS-only search across Knowledge Base passages or complete documents.',
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'The semantic query string chosen by the assistant',
+              description: 'The search query string chosen by the assistant',
+            },
+            mode: {
+              type: 'string',
+              enum: ['hybrid', 'vector', 'fts'],
+              description:
+                'Search method: "hybrid" (RRF blend of vector + FTS5, default), "vector" (semantic similarity), or "fts" (exact keyword/phrase BM25 match)',
+            },
+            scope: {
+              type: 'string',
+              enum: ['chunks', 'documents'],
+              description:
+                'Search target scope: "chunks" (passage-level, default) or "documents" (returns complete document matches)',
             },
             topK: {
               type: 'integer',
-              description: 'Number of top matching chunks to retrieve (default 5)',
+              description: 'Number of top matching results to retrieve (default 5)',
             },
           },
           required: ['query'],
@@ -261,9 +277,11 @@ export function createKnowledgeSkill(
       }
 
       const topK = Math.max(1, Math.min(20, Number(call.input.topK) || 5))
+      const mode = (call.input.mode as 'hybrid' | 'vector' | 'fts') || 'hybrid'
+      const scope = (call.input.scope as 'chunks' | 'documents') || 'chunks'
 
       try {
-        const matches = await searchFn(query, targetKbId, topK)
+        const matches = await searchFn(query, targetKbId, topK, { mode, scope })
         if (matches.length === 0) {
           return {
             output: `No relevant passages found in the knowledge base for query: "${query}".`,
@@ -274,11 +292,11 @@ export function createKnowledgeSkill(
 
         const lines = matches.map(
           (m, i) =>
-            `[Result ${i + 1}] Document: "${m.documentName}" | Collection: "${m.knowledgeBaseName}" | Path: ${m.headerPath} | Score: ${m.similarityScore}\n---\n${m.text}`,
+            `[Result ${i + 1}] Document: "${m.documentName}" | Collection: "${m.knowledgeBaseName}" | Path: ${m.headerPath} | Score (${m.scoreType ?? 'Score'}): ${m.similarityScore}\n---\n${m.text}`,
         )
 
         return {
-          output: `Found ${matches.length} matching passages in the Knowledge Base:\n\n${lines.join('\n\n')}`,
+          output: `Found ${matches.length} matching result(s) in the Knowledge Base (mode: ${mode}, scope: ${scope}):\n\n${lines.join('\n\n')}`,
           mutated: false,
           summary: `search_knowledge_base ("${query}") - ${matches.length} matches`,
         }

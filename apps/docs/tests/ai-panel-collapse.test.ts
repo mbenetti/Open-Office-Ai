@@ -1,5 +1,8 @@
 // The AI panel stays mounted while collapsed (rail only),
 // so the conversation, draft, and in-flight runs survive collapse/expand.
+// @ts-expect-error React 19 act environment flag
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -75,7 +78,15 @@ function typeInto(textarea: HTMLTextAreaElement, text: string) {
 beforeAll(() => {
   // jsdom has no scrollTo; the panel auto-scrolls its chat log
   Element.prototype.scrollTo ??= () => {}
+  const store = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => store.set(k, String(v)),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
+  })
 })
+
 
 describe('AiPanel collapse', () => {
   it('keeps the draft input across a collapse/expand cycle', () => {
