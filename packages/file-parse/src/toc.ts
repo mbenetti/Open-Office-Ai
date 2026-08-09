@@ -47,11 +47,28 @@ export function extractToc(text: string): TocItem[] {
         const level = match[1]!.length as 1 | 2
         const title = match[2]!.trim()
         if (!isInvalidPageHeaderTitle(title)) {
-          toc.push({
-            level,
-            title,
-            offset,
-          })
+          const last = toc.length > 0 ? toc[toc.length - 1] : undefined
+          let hasInterveningBodyText = false
+          if (last) {
+            const between = normalized.slice(last.offset, offset).split('\n').slice(1)
+            for (const bLine of between) {
+              const bTrim = bLine.trim()
+              if (bTrim && !bTrim.startsWith('#')) {
+                hasInterveningBodyText = true
+                break
+              }
+            }
+          }
+
+          if (last && last.level === level && !hasInterveningBodyText) {
+            last.title = `${last.title} ${title}`
+          } else {
+            toc.push({
+              level,
+              title,
+              offset,
+            })
+          }
         }
       }
     }

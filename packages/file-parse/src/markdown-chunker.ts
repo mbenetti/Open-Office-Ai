@@ -248,6 +248,15 @@ export function chunkMarkdownDocument(
       const level = match[1]!.length
       const title = match[2]!.trim()
       if (!isInvalidPageHeaderTitle(title)) {
+        const lastHeader = activeHeaders.length > 0 ? activeHeaders.at(-1) : undefined
+        const noBodyTextYet = blocks.length === 0 || blocks.at(-1)?.headers.at(-1) !== lastHeader
+
+        if (lastHeader && lastHeader.level === level && noBodyTextYet && currentLines.length === 0) {
+          lastHeader.title = `${lastHeader.title} ${title}`
+          lastHeader.rawLine = `${lastHeader.rawLine}\n${line}`
+          continue
+        }
+
         flush()
         const node: HeaderNode = { level, title, rawLine: line }
 

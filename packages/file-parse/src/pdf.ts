@@ -169,11 +169,31 @@ export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
         pageLines.push({ text: curText.trim(), maxH: curMaxH, y: curY })
       }
 
+      // Pre-pass: merge consecutive lines belonging to a multi-line heading
+      const mergedPageLines: { text: string; maxH: number; y: number }[] = []
+      for (const line of pageLines) {
+        if (mergedPageLines.length > 0) {
+          const prev = mergedPageLines[mergedPageLines.length - 1]!
+          const prevIsHeading = prev.maxH >= medianHeight * 1.1
+          const curIsHeading = line.maxH >= medianHeight * 1.1
+          const heightRatio = Math.max(prev.maxH, line.maxH) / Math.min(prev.maxH, line.maxH)
+          const verticalGap = Math.abs(prev.y - line.y)
+
+          if (prevIsHeading && curIsHeading && heightRatio <= 1.25 && verticalGap <= prev.maxH * 1.8) {
+            prev.text = `${prev.text} ${line.text}`
+            prev.maxH = Math.max(prev.maxH, line.maxH)
+            prev.y = line.y
+            continue
+          }
+        }
+        mergedPageLines.push({ ...line })
+      }
+
       const formattedLines: string[] = []
       let pageHasHeader = false
 
-      for (let i = 0; i < pageLines.length; i++) {
-        const l = pageLines[i]!
+      for (let i = 0; i < mergedPageLines.length; i++) {
+        const l = mergedPageLines[i]!
         const isHeading = l.maxH >= medianHeight * 1.1
         let out: string
         if (l.maxH >= medianHeight * 1.4) {
@@ -189,11 +209,8 @@ export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
           out = l.text
         }
 
-        // PDF visual lines are soft-wrapped (single \n). Only start a new
-        // paragraph when the vertical gap to the previous line clearly exceeds
-        // the line height (a genuine blank line between paragraphs).
         if (formattedLines.length > 0) {
-          const prev = pageLines[i - 1]!
+          const prev = mergedPageLines[i - 1]!
           const prevWasHeading = prev.maxH >= medianHeight * 1.1
           const gap = Math.abs(l.y - prev.y)
           const paragraphBreak = !isHeading && gap > prev.maxH * 1.7
