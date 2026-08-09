@@ -49,8 +49,24 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ### 2. Knowledge Base & Collection Management
 * **Collection Workspace**: Create, rename, delete, and organize knowledge bases (collections) directly from the unified Upload Document tab.
-* **SQLite & Permanent Storage**: All knowledge base metadata, collection structures, document indices, and chat histories are persisted in SQLite. Ingested documents save permanent `.md` file copies alongside extracted Level 1 (`#`) and Level 2 (`##`) Table of Contents headings with character offsets.
-* **Synchronized Deletion**: Deleting documents or collection folders automatically purges SQLite metadata, vector chunks, and disk `.md` files.
+* **SQLite & Permanent Disk Storage Architecture**:
+  * **Inside SQLite (`knowledge-store.sqlite`)**: Manages collections, document metadata, Table of Contents (TOC) JSON structures, chunks, vector embeddings, and dual FTS5 virtual tables (`chunks_fts` and `documents_fts`).
+  * **Outside SQLite (On Disk `md-documents/`)**: Full extracted document text is saved as permanent `.md` files (`doc-XXXXXXXX.md`).
+  ```text
+  Open Office Ai Knowledge Base Storage Layout
+  ├── 📁 knowledge-store.sqlite (Inside SQLite Database)
+  │   ├── 📊 collections (Folder/Collection metadata)
+  │   ├── 📄 documents (Document metadata, TOC JSON, size, byte counts, md_path)
+  │   ├── 🧩 chunks (Passage text, header paths, and vector embeddings)
+  │   ├── 🔍 chunks_fts (FTS5 virtual table for chunk/passage keyword search)
+  │   └── 📑 documents_fts (FTS5 external content virtual table for full-document BM25 ranking)
+  │
+  └── 📁 md-documents/ (Outside SQLite - On Disk)
+      ├── 📝 doc-a1b2c3d4.md (Complete permanent Markdown file for document 1)
+      ├── 📝 doc-e5f6g7h8.md (Complete permanent Markdown file for document 2)
+      └── 📝 ...
+  ```
+* **Synchronized Deletion**: Deleting documents or collection folders automatically purges SQLite metadata, vector chunks, FTS indexes, and disk `.md` files.
 * **KB Document TOC Navigation & Paging**: In addition to semantic RAG vector search, the AI chatbot can list collection documents (`list_knowledge_documents`) with TOCs and jump directly to specific sections by heading title or character range (`read_knowledge_document`) using concise IDs (`doc-XXXXXXXX`). In-memory text caching guarantees instant reading.
 * **Navigation Tree & Preview**: Navigate your knowledge bases and documents using an intuitive left-panel tree structure with interactive TOC document previews.
 
