@@ -52,6 +52,9 @@ export interface SearchResultMatch {
   headerPath: string
   text: string
   similarityScore: number
+  scoreType?: 'RRF Score' | 'Cosine Similarity' | 'BM25 Score' | undefined
+  searchMode?: 'hybrid' | 'vector' | 'fts' | undefined
+  searchScope?: 'chunks' | 'documents' | undefined
 }
 
 interface LegacyStoredKnowledgeData {
@@ -696,6 +699,9 @@ export class KnowledgeStore {
         headerPath: item.row.header_path,
         text: item.row.text,
         similarityScore: Math.round(item.score * 1000) / 1000,
+        scoreType: 'Cosine Similarity',
+        searchMode: 'vector',
+        searchScope,
       }))
     } else if (searchMode === 'fts') {
       rrfMatches = ftsList.map((item) => ({
@@ -707,6 +713,9 @@ export class KnowledgeStore {
         headerPath: item.row.header_path,
         text: item.row.text,
         similarityScore: Math.round(item.score * 1000) / 1000,
+        scoreType: 'BM25 Score',
+        searchMode: 'fts',
+        searchScope,
       }))
     } else {
       // 3. Reciprocal Rank Fusion (RRF) Blending
@@ -755,20 +764,40 @@ export class KnowledgeStore {
           headerPath: row.header_path,
           text: row.text,
           similarityScore: Math.round(rrfScore * 1000) / 1000,
+          scoreType: 'RRF Score',
+          searchMode: 'hybrid',
+          searchScope,
         })
       }
 
       rrfMatches.sort((a, b) => b.similarityScore - a.similarityScore)
     }
 
-    // Document Scope Aggregation
+    // Document Scope Aggregation: load full document text from disk .md file/cache
     if (searchScope === 'documents') {
       const docSeen = new Set<string>()
       const docMatches: SearchResultMatch[] = []
+
       for (const m of rrfMatches) {
         if (!docSeen.has(m.documentId)) {
           docSeen.add(m.documentId)
-          docMatches.push(m)
+
+          let fullDocText = m.text
+          try {
+            const docRead = await this.readDocumentText(m.documentId)
+            if (docRead.ok && docRead.text) {
+              fullDocText = docRead.text
+            }
+          } catch {
+            /* fallback to chunk text */
+          }
+
+          docMatches.push({
+            ...m,
+            headerPath: '(Full Document)',
+            text: fullDocText,
+            searchScope: 'documents',
+          })
         }
       }
       rrfMatches = docMatches

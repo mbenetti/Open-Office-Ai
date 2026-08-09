@@ -3241,8 +3241,25 @@ export function Home() {
                             <strong>{match.knowledgeBaseName}</strong>
                           </span>
                         </div>
-                        <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>
-                          Similarity Score: {match.similarityScore}
+                        <span
+                          style={{
+                            ...(match.scoreType === 'BM25 Score' || workbenchMode === 'fts'
+                              ? { background: '#e0f2f1', color: '#00695c' }
+                              : match.scoreType === 'Cosine Similarity' || workbenchMode === 'vector'
+                                ? { background: '#e8f5e9', color: '#2e7d32' }
+                                : { background: '#fff3e0', color: '#e65100' }),
+                            padding: '2px 8px',
+                            borderRadius: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {match.scoreType ??
+                            (workbenchMode === 'vector'
+                              ? 'Cosine Similarity'
+                              : workbenchMode === 'fts'
+                                ? 'BM25 Score'
+                                : 'RRF Score')}
+                          : {match.similarityScore}
                         </span>
                       </div>
 
