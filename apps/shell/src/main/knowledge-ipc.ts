@@ -128,9 +128,21 @@ export function registerKnowledgeIpc(): void {
   })
 
   ipcMain.handle('knowledge:search', async (_event, opts: unknown) => {
-    const o = opts as { query?: string; knowledgeBaseId?: string | string[]; topK?: number } | undefined
+    const o = opts as {
+      query?: string
+      knowledgeBaseId?: string | string[]
+      topK?: number
+      mode?: 'hybrid' | 'vector' | 'fts'
+      scope?: 'chunks' | 'documents'
+    } | undefined
     if (!o?.query) return []
-    return store.searchKnowledgeBase(o.query, o.knowledgeBaseId, o.topK ?? 5, getEmbeddingConfig())
+    return store.searchKnowledgeBase(
+      o.query,
+      o.knowledgeBaseId,
+      o.topK ?? 5,
+      getEmbeddingConfig(),
+      { mode: o.mode, scope: o.scope },
+    )
   })
 
   ipcMain.handle('knowledge:pick', async (event) => {

@@ -1791,6 +1791,45 @@ function SkillsTab({
 
 // ── Main component ──────────────────────────────────────
 
+function renderHighlightedText(text: string, query: string): React.ReactNode {
+  if (!text) return ''
+  if (!query || !query.trim() || query.trim() === '*') return text
+
+  const terms = Array.from(
+    new Set(
+      query
+        .replace(/[^\w\s\u00C0-\u024F\u4E00-\u9FFF]/g, ' ')
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2),
+    ),
+  )
+
+  if (terms.length === 0) return text
+
+  const pattern = new RegExp(`(${terms.map((t) => t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')).join('|')})`, 'gi')
+  const parts = text.split(pattern)
+
+  return parts.map((part, idx) =>
+    pattern.test(part) ? (
+      <mark
+        key={idx}
+        style={{
+          backgroundColor: '#ffe082',
+          color: '#000000',
+          padding: '1px 3px',
+          borderRadius: '3px',
+          fontWeight: 600,
+        }}
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  )
+}
+
 export function Home() {
   const i18n = useI18n()
   const { t, lang } = i18n
@@ -1836,6 +1875,8 @@ export function Home() {
   const [expandedKbs, setExpandedKbs] = useState<Set<string>>(() => new Set(['default-kb']))
   const [workbenchQuery, setWorkbenchQuery] = useState('')
   const [workbenchTopK, setWorkbenchTopK] = useState(5)
+  const [workbenchMode, setWorkbenchMode] = useState<'hybrid' | 'vector' | 'fts'>('hybrid')
+  const [workbenchScope, setWorkbenchScope] = useState<'chunks' | 'documents'>('chunks')
   const [workbenchSelectedKbIds, setWorkbenchSelectedKbIds] = useState<string[]>([])
   const [workbenchResults, setWorkbenchResults] = useState<SearchResultMatch[]>([])
   const [workbenchSearching, setWorkbenchSearching] = useState(false)
@@ -1864,10 +1905,11 @@ export function Home() {
     if (!window.aiOffice?.knowledge || !workbenchQuery.trim()) return
     setWorkbenchSearching(true)
     try {
-      const results = await window.aiOffice.knowledge.searchKnowledgeBase(
+      const results = await (window.aiOffice.knowledge.searchKnowledgeBase as any)(
         workbenchQuery.trim(),
         workbenchSelectedKbIds.length > 0 ? workbenchSelectedKbIds : undefined,
         workbenchTopK,
+        { mode: workbenchMode, scope: workbenchScope },
       )
       setWorkbenchResults(results)
     } finally {
@@ -3093,10 +3135,35 @@ export function Home() {
                 </div>
               </div>
 
-              {/* Top K & Query Input */}
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              {/* Search Mode & Scope & Top K */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Max Chunks (topK):</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Search Mode:</span>
+                  <select
+                    value={workbenchMode}
+                    style={{ padding: '4px 8px', fontSize: 13, borderRadius: 4, border: '1px solid var(--border-strong)', background: 'var(--surface-1)' }}
+                    onChange={(e) => setWorkbenchMode(e.target.value as 'hybrid' | 'vector' | 'fts')}
+                  >
+                    <option value="hybrid">Hybrid (Vector + FTS via RRF)</option>
+                    <option value="vector">Vector Only (Cosine Similarity)</option>
+                    <option value="fts">FTS Only (SQLite FTS5 BM25)</option>
+                  </select>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Target Scope:</span>
+                  <select
+                    value={workbenchScope}
+                    style={{ padding: '4px 8px', fontSize: 13, borderRadius: 4, border: '1px solid var(--border-strong)', background: 'var(--surface-1)' }}
+                    onChange={(e) => setWorkbenchScope(e.target.value as 'chunks' | 'documents')}
+                  >
+                    <option value="chunks">Chunks / Passages</option>
+                    <option value="documents">Documents (Aggregated)</option>
+                  </select>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Max Results:</span>
                   <input
                     type="number"
                     min={1}
@@ -3180,11 +3247,11 @@ export function Home() {
                       </div>
 
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-                        Header Path: <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{match.headerPath}</code>
+                        Header Path: <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{renderHighlightedText(match.headerPath, workbenchQuery)}</code>
                       </div>
 
-                      <div style={{ background: 'var(--surface-2)', padding: 12, borderRadius: 6, border: '1px solid var(--border)' }}>
-                        <MarkdownPreview content={match.text} />
+                      <div style={{ background: 'var(--surface-2)', padding: 12, borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {renderHighlightedText(match.text, workbenchQuery)}
                       </div>
                     </div>
                   ))}

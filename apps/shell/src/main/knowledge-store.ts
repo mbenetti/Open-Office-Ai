@@ -565,17 +565,21 @@ export class KnowledgeStore {
 
   /**
    * Hybrid RAG Search (Vector Cosine Similarity + SQLite FTS5 BM25) blended with
-   * Reciprocal Rank Fusion (RRF).
+   * Reciprocal Rank Fusion (RRF), supporting mode (hybrid/vector/fts) and scope (chunks/documents).
    */
   async searchKnowledgeBase(
     query: string,
     knowledgeBaseId?: string | string[] | null,
     topK = 5,
     embeddingConfig?: EmbeddingProviderConfig,
+    options?: { mode?: 'hybrid' | 'vector' | 'fts'; scope?: 'chunks' | 'documents' },
   ): Promise<SearchResultMatch[]> {
     const db = this.initDatabase()
     const trimmedQuery = query.trim()
     if (!trimmedQuery) return []
+
+    const searchMode = options?.mode ?? 'hybrid'
+    const searchScope = options?.scope ?? 'chunks'
 
     // Build filter set for collection IDs
     let allowedSet: Set<string> | null = null
@@ -657,54 +661,93 @@ export class KnowledgeStore {
       }
     }
 
-    // 3. Reciprocal Rank Fusion (RRF) Blending
-    const vectorRankMap = new Map<string, number>()
-    vectorList.forEach((item, idx) => vectorRankMap.set(item.chunkId, idx + 1))
+    let rrfMatches: SearchResultMatch[] = []
 
-    const ftsRankMap = new Map<string, number>()
-    ftsList.forEach((item, idx) => ftsRankMap.set(item.chunkId, idx + 1))
+    if (searchMode === 'vector') {
+      rrfMatches = vectorList.map((item) => ({
+        documentId: item.row.document_id,
+        documentName: item.row.document_name ?? 'Document',
+        knowledgeBaseId: item.row.knowledge_base_id,
+        knowledgeBaseName: item.row.knowledge_base_name ?? 'Collection',
+        chunkIndex: item.row.chunk_index,
+        headerPath: item.row.header_path,
+        text: item.row.text,
+        similarityScore: Math.round(item.score * 1000) / 1000,
+      }))
+    } else if (searchMode === 'fts') {
+      rrfMatches = ftsList.map((item) => ({
+        documentId: item.row.document_id,
+        documentName: item.row.document_name ?? 'Document',
+        knowledgeBaseId: item.row.knowledge_base_id,
+        knowledgeBaseName: item.row.knowledge_base_name ?? 'Collection',
+        chunkIndex: item.row.chunk_index,
+        headerPath: item.row.header_path,
+        text: item.row.text,
+        similarityScore: Math.round(item.score * 1000) / 1000,
+      }))
+    } else {
+      // 3. Reciprocal Rank Fusion (RRF) Blending
+      const vectorRankMap = new Map<string, number>()
+      vectorList.forEach((item, idx) => vectorRankMap.set(item.chunkId, idx + 1))
 
-    const allChunkIds = new Set([...vectorRankMap.keys(), ...ftsRankMap.keys()])
-    
-    // If neither vector nor FTS returned matches, fall back to simple term match
-    if (allChunkIds.size === 0) {
-      const qLower = trimmedQuery.toLowerCase()
-      chunkRows.forEach((r) => {
-        if (r.text.toLowerCase().includes(qLower)) {
-          allChunkIds.add(r.id)
-          vectorRankMap.set(r.id, 1)
+      const ftsRankMap = new Map<string, number>()
+      ftsList.forEach((item, idx) => ftsRankMap.set(item.chunkId, idx + 1))
+
+      const allChunkIds = new Set([...vectorRankMap.keys(), ...ftsRankMap.keys()])
+      
+      // If neither vector nor FTS returned matches, fall back to simple term match
+      if (allChunkIds.size === 0) {
+        const qLower = trimmedQuery.toLowerCase()
+        chunkRows.forEach((r) => {
+          if (r.text.toLowerCase().includes(qLower)) {
+            allChunkIds.add(r.id)
+            vectorRankMap.set(r.id, 1)
+          }
+        })
+      }
+
+      const rowMap = new Map(chunkRows.map((r) => [r.id, r]))
+      const RRF_K = 60
+
+      for (const cid of allChunkIds) {
+        const row = rowMap.get(cid)
+        if (!row) continue
+
+        const vRank = vectorRankMap.get(cid)
+        const fRank = ftsRankMap.get(cid)
+
+        const vScore = vRank ? 1 / (RRF_K + vRank) : 0
+        const fScore = fRank ? 1 / (RRF_K + fRank) : 0
+        const rrfScore = vScore + fScore
+
+        rrfMatches.push({
+          documentId: row.document_id,
+          documentName: row.document_name ?? 'Document',
+          knowledgeBaseId: row.knowledge_base_id,
+          knowledgeBaseName: row.knowledge_base_name ?? 'Collection',
+          chunkIndex: row.chunk_index,
+          headerPath: row.header_path,
+          text: row.text,
+          similarityScore: Math.round(rrfScore * 1000) / 1000,
+        })
+      }
+
+      rrfMatches.sort((a, b) => b.similarityScore - a.similarityScore)
+    }
+
+    // Document Scope Aggregation
+    if (searchScope === 'documents') {
+      const docSeen = new Set<string>()
+      const docMatches: SearchResultMatch[] = []
+      for (const m of rrfMatches) {
+        if (!docSeen.has(m.documentId)) {
+          docSeen.add(m.documentId)
+          docMatches.push(m)
         }
-      })
+      }
+      rrfMatches = docMatches
     }
 
-    const rowMap = new Map(chunkRows.map((r) => [r.id, r]))
-    const rrfMatches: SearchResultMatch[] = []
-    const RRF_K = 60
-
-    for (const cid of allChunkIds) {
-      const row = rowMap.get(cid)
-      if (!row) continue
-
-      const vRank = vectorRankMap.get(cid)
-      const fRank = ftsRankMap.get(cid)
-
-      const vScore = vRank ? 1 / (RRF_K + vRank) : 0
-      const fScore = fRank ? 1 / (RRF_K + fRank) : 0
-      const rrfScore = vScore + fScore
-
-      rrfMatches.push({
-        documentId: row.document_id,
-        documentName: row.document_name ?? 'Document',
-        knowledgeBaseId: row.knowledge_base_id,
-        knowledgeBaseName: row.knowledge_base_name ?? 'Collection',
-        chunkIndex: row.chunk_index,
-        headerPath: row.header_path,
-        text: row.text,
-        similarityScore: Math.round(rrfScore * 1000) / 1000,
-      })
-    }
-
-    rrfMatches.sort((a, b) => b.similarityScore - a.similarityScore)
     return rrfMatches.slice(0, Math.max(1, topK))
   }
 }
