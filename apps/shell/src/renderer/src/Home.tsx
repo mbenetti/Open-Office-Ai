@@ -3158,7 +3158,7 @@ export function Home() {
                     onChange={(e) => setWorkbenchScope(e.target.value as 'chunks' | 'documents')}
                   >
                     <option value="chunks">Chunks / Passages</option>
-                    <option value="documents">Documents (Aggregated)</option>
+                    <option value="documents">Full Documents</option>
                   </select>
                 </label>
 
