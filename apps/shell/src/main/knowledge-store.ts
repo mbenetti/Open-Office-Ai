@@ -134,6 +134,15 @@ export class KnowledgeStore {
         text,
         tokenize='unicode61 remove_diacritics 2'
       );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+        document_id UNINDEXED,
+        knowledge_base_id UNINDEXED,
+        document_name,
+        full_text,
+        content='',
+        tokenize='unicode61 remove_diacritics 2'
+      );
     `)
 
     this.db = db
@@ -182,6 +191,9 @@ export class KnowledgeStore {
           )
           const stmtFts = db.prepare(
             `INSERT OR IGNORE INTO chunks_fts (chunk_id, document_id, knowledge_base_id, document_name, header_path, text) VALUES (?, ?, ?, ?, ?, ?)`,
+          )
+          const stmtDocFts = db.prepare(
+            `INSERT OR IGNORE INTO documents_fts (document_id, knowledge_base_id, document_name, full_text) VALUES (?, ?, ?, ?)`,
           )
 
           const docMap = new Map((parsed.documents ?? []).map((d) => [d.id, d.name]))
@@ -287,6 +299,7 @@ export class KnowledgeStore {
 
     db.exec('BEGIN TRANSACTION;')
     db.prepare(`DELETE FROM chunks_fts WHERE knowledge_base_id = ?`).run(id)
+    db.prepare(`DELETE FROM documents_fts WHERE knowledge_base_id = ?`).run(id)
     db.prepare(`DELETE FROM chunks WHERE knowledge_base_id = ?`).run(id)
     db.prepare(`DELETE FROM documents WHERE knowledge_base_id = ?`).run(id)
     const result = db.prepare(`DELETE FROM collections WHERE id = ?`).run(id)
@@ -436,6 +449,8 @@ export class KnowledgeStore {
 
     const stmtChunk = db.prepare(`INSERT INTO chunks (id, document_id, knowledge_base_id, chunk_index, header_path, text, char_count, embedding_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
     const stmtFts = db.prepare(`INSERT INTO chunks_fts (chunk_id, document_id, knowledge_base_id, document_name, header_path, text) VALUES (?, ?, ?, ?, ?, ?)`)
+    const stmtDocFts = db.prepare(`INSERT INTO documents_fts (document_id, knowledge_base_id, document_name, full_text) VALUES (?, ?, ?, ?)`)
+    stmtDocFts.run(docId, targetFolderId, name, parsed.text)
 
     for (const c of chunks) {
       let vec: number[] | undefined = undefined
@@ -527,6 +542,7 @@ export class KnowledgeStore {
 
     db.exec('BEGIN TRANSACTION;')
     db.prepare(`DELETE FROM chunks_fts WHERE chunk_id IN (SELECT id FROM chunks WHERE document_id = ?)`).run(id)
+    db.prepare(`DELETE FROM documents_fts WHERE document_id = ?`).run(id)
     db.prepare(`DELETE FROM chunks WHERE document_id = ?`).run(id)
     const result = db.prepare(`DELETE FROM documents WHERE id = ?`).run(id)
     db.exec('COMMIT;')
@@ -644,9 +660,16 @@ export class KnowledgeStore {
 
     // 2. FTS5 Keyword/BM25 Ranking
     const ftsList: RankItem[] = []
+    const docFtsRankMap = new Map<string, number>()
     const ftsQuery = sanitizeFtsQuery(trimmedQuery)
     if (ftsQuery) {
       try {
+        if (searchScope === 'documents') {
+          const stmtDocFts = db.prepare(`SELECT f.document_id, bm25(documents_fts) AS bm25_score FROM documents_fts f WHERE documents_fts MATCH ? ORDER BY bm25_score ASC`)
+          const docFtsRows = stmtDocFts.all(ftsQuery) as Array<{ document_id: string; bm25_score: number }>
+          docFtsRows.forEach((df, idx) => docFtsRankMap.set(df.document_id, idx + 1))
+        }
+
         const stmtFts = db.prepare(`SELECT f.chunk_id, bm25(chunks_fts) AS bm25_score FROM chunks_fts f WHERE chunks_fts MATCH ? ORDER BY bm25_score ASC`)
         const ftsRows = stmtFts.all(ftsQuery) as Array<{ chunk_id: string; bm25_score: number }>
         const rowMap = new Map(chunkRows.map((r) => [r.id, r]))
@@ -714,7 +737,10 @@ export class KnowledgeStore {
         if (!row) continue
 
         const vRank = vectorRankMap.get(cid)
-        const fRank = ftsRankMap.get(cid)
+        let fRank = ftsRankMap.get(cid)
+        if (searchScope === 'documents' && docFtsRankMap.has(row.document_id)) {
+          fRank = docFtsRankMap.get(row.document_id)
+        }
 
         const vScore = vRank ? 1 / (RRF_K + vRank) : 0
         const fScore = fRank ? 1 / (RRF_K + fRank) : 0
