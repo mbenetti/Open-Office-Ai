@@ -83,7 +83,7 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
   * **Target Scope**: Filter between **Chunks / Passages** and **Documents** (aggregated).
   * **Term Highlighting**: Automatically highlights matching query keywords in yellow (`<mark>`) across header paths and retrieved text passages.
 
-![Screenshot](./ing/Screenshot5.png)
+![Screenshot](./ing/Screenshot6.png)
 
 ### 4. Reusable AI Skills (Slash Commands)
 * **Skills Library**: Create, modify, and delete reusable AI skills in a dedicated tab.
