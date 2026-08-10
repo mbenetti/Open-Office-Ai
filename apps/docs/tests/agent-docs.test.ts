@@ -423,6 +423,60 @@ describe('blank-document detection', () => {
   })
 })
 
+describe('update_table_cells tool', () => {
+  it('updates table cell text while preserving table structure and docxIndex', async () => {
+    const tableSpec: JsonNode = {
+      type: 'docTable',
+      attrs: { docxIndex: 0, colWidthsPct: [50, 50] },
+      content: [
+        {
+          type: 'docTableRow',
+          attrs: {},
+          content: [
+            {
+              type: 'docTableCell',
+              attrs: { colspan: 1, rowspan: 1 },
+              content: [{ type: 'docParagraph', attrs: {}, content: [text('Name:')] }],
+            },
+            {
+              type: 'docTableCell',
+              attrs: { colspan: 1, rowspan: 1 },
+              content: [{ type: 'docParagraph', attrs: {}, content: [text('[Placeholder]')] }],
+            },
+          ],
+        },
+      ],
+    }
+    const editor = createEditor([tableSpec])
+
+    const exec = await executeTool(
+      editor,
+      {
+        id: 'tc1',
+        name: 'update_table_cells',
+        input: {
+          blockIndex: 0,
+          updates: [{ row: 0, col: 1, text: 'Dr. Benetti' }],
+        },
+      },
+      NUM_IDS,
+    )
+
+    expect(exec.isError).toBeUndefined()
+    expect(exec.mutated).toBe(true)
+
+    const tableNode = editor.state.doc.child(0)
+    expect(tableNode.type.name).toBe('docTable')
+    expect(tableNode.attrs.docxIndex).toBe(0)
+
+    const cell00 = tableNode.child(0).child(0)
+    const cell01 = tableNode.child(0).child(1)
+
+    expect(cell00.textContent).toBe('Name:')
+    expect(cell01.textContent).toBe('Dr. Benetti')
+  })
+})
+
 describe('web_search backend failures', () => {
   it("method 'error' surfaces as a tool error instead of '(no results)'", async () => {
     const editor = createEditor(fixture())

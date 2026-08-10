@@ -84,6 +84,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: '插入图表「{title}」',
     aiSumEditChart: '编辑图表',
     aiSumEditedChart: '编辑图表数据(块 {index})',
+    aiSumUpdateTableCells: '更新表格单元格',
+    aiSumUpdatedTableCells: '更新表格单元格(块 {index})',
     aiSumApplyCommands: '执行格式命令',
     aiCmdNone: '没有命中需要修改的块,文档未改动。',
     aiCmdNoneSkipped:
@@ -189,6 +191,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Inserted chart "{title}"',
     aiSumEditChart: 'Edit chart',
     aiSumEditedChart: 'Edited chart data (block {index})',
+    aiSumUpdateTableCells: 'Update table cells',
+    aiSumUpdatedTableCells: 'Updated table cells (block {index})',
     aiSumApplyCommands: 'Apply formatting commands',
     aiCmdNone: 'No matching blocks; the document was not changed.',
     aiCmdNoneSkipped:
@@ -295,6 +299,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'グラフ「{title}」を挿入',
     aiSumEditChart: 'グラフを編集',
     aiSumEditedChart: 'グラフデータを編集(ブロック {index})',
+    aiSumUpdateTableCells: '表のセルを更新',
+    aiSumUpdatedTableCells: '表のセルを更新(ブロック {index})',
     aiSumApplyCommands: '書式コマンドを実行',
     aiCmdNone: '変更対象のブロックが見つからなかったため、文書は変更されていません。',
     aiCmdNoneSkipped:
@@ -400,6 +406,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: '차트 "{title}" 삽입',
     aiSumEditChart: '차트 편집',
     aiSumEditedChart: '차트 데이터 편집(블록 {index})',
+    aiSumUpdateTableCells: '표 셀 업데이트',
+    aiSumUpdatedTableCells: '표 셀 업데이트(블록 {index})',
     aiSumApplyCommands: '서식 명령 실행',
     aiCmdNone: '수정할 블록이 없어 문서가 변경되지 않았습니다.',
     aiCmdNoneSkipped:
@@ -509,6 +517,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Graphique « {title} » inséré',
     aiSumEditChart: 'Modifier le graphique',
     aiSumEditedChart: 'Données du graphique modifiées (bloc {index})',
+    aiSumUpdateTableCells: 'Mettre à jour les cellules du tableau',
+    aiSumUpdatedTableCells: 'Cellules du tableau mises à jour (bloc {index})',
     aiSumApplyCommands: 'Appliquer des commandes de mise en forme',
     aiCmdNone: "Aucun bloc correspondant ; le document n'a pas été modifié.",
     aiCmdNoneSkipped:
@@ -617,6 +627,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Diagramm „{title}“ eingefügt',
     aiSumEditChart: 'Diagramm bearbeiten',
     aiSumEditedChart: 'Diagrammdaten bearbeitet (Block {index})',
+    aiSumUpdateTableCells: 'Tabellenzellen aktualisieren',
+    aiSumUpdatedTableCells: 'Tabellenzellen aktualisiert (Block {index})',
     aiSumApplyCommands: 'Formatierungsbefehle anwenden',
     aiCmdNone: 'Keine passenden Blöcke gefunden; das Dokument wurde nicht geändert.',
     aiCmdNoneSkipped:
@@ -724,6 +736,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Gráfico «{title}» insertado',
     aiSumEditChart: 'Editar gráfico',
     aiSumEditedChart: 'Datos del gráfico editados (bloque {index})',
+    aiSumUpdateTableCells: 'Actualizar celdas de tabla',
+    aiSumUpdatedTableCells: 'Celdas de tabla actualizadas (bloque {index})',
     aiSumApplyCommands: 'Aplicar comandos de formato',
     aiCmdNone: 'No hay bloques coincidentes; el documento no se modificó.',
     aiCmdNoneSkipped:
@@ -829,6 +843,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'แทรกแผนภูมิ "{title}"',
     aiSumEditChart: 'แก้ไขแผนภูมิ',
     aiSumEditedChart: 'แก้ไขข้อมูลแผนภูมิ (บล็อก {index})',
+    aiSumUpdateTableCells: 'อัปเดตเซลล์ตาราง',
+    aiSumUpdatedTableCells: 'อัปเดตเซลล์ตาราง (บล็อก {index})',
     aiSumApplyCommands: 'ใช้คำสั่งการจัดรูปแบบ',
     aiCmdNone: 'ไม่พบบล็อกที่ต้องแก้ไข เอกสารไม่มีการเปลี่ยนแปลง',
     aiCmdNoneSkipped:
@@ -934,6 +950,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Bagan "{title}" disisipkan',
     aiSumEditChart: 'Edit bagan',
     aiSumEditedChart: 'Data bagan diedit (blok {index})',
+    aiSumUpdateTableCells: 'Update sel tabel',
+    aiSumUpdatedTableCells: 'Sel tabel diperbarui (blok {index})',
     aiSumApplyCommands: 'Terapkan perintah pemformatan',
     aiCmdNone: 'Tidak ada blok yang cocok; dokumen tidak diubah.',
     aiCmdNoneSkipped:
@@ -1040,6 +1058,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Вставлена диаграмма «{title}»',
     aiSumEditChart: 'Изменение диаграммы',
     aiSumEditedChart: 'Изменены данные диаграммы (блок {index})',
+    aiSumUpdateTableCells: 'Обновление ячеек таблицы',
+    aiSumUpdatedTableCells: 'Обновлены ячейки таблицы (блок {index})',
     aiSumApplyCommands: 'Применение команд форматирования',
     aiCmdNone: 'Подходящих блоков не найдено; документ не изменен.',
     aiCmdNoneSkipped:
@@ -1145,6 +1165,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'تم إدراج المخطط «{title}»',
     aiSumEditChart: 'تحرير المخطط',
     aiSumEditedChart: 'تم تحرير بيانات المخطط (الكتلة {index})',
+    aiSumUpdateTableCells: 'تحديث خلايا الجدول',
+    aiSumUpdatedTableCells: 'تم تحديث خلايا الجدول (الكتلة {index})',
     aiSumApplyCommands: 'تنفيذ أوامر التنسيق',
     aiCmdNone: 'لا توجد كتل مطابقة؛ لم يتغير المستند.',
     aiCmdNoneSkipped:
@@ -1251,6 +1273,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Gráfico "{title}" inserido',
     aiSumEditChart: 'Editar gráfico',
     aiSumEditedChart: 'Dados do gráfico editados (bloco {index})',
+    aiSumUpdateTableCells: 'Atualizar células da tabela',
+    aiSumUpdatedTableCells: 'Células da tabela atualizadas (bloco {index})',
     aiSumApplyCommands: 'Aplicar comandos de formatação',
     aiCmdNone: 'Nenhum bloco correspondente; o documento não foi alterado.',
     aiCmdNoneSkipped:
@@ -1361,6 +1385,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Grafico "{title}" inserito',
     aiSumEditChart: 'Modifica grafico',
     aiSumEditedChart: 'Dati del grafico modificati (blocco {index})',
+    aiSumUpdateTableCells: 'Aggiorna celle della tabella',
+    aiSumUpdatedTableCells: 'Celle della tabella aggiornate (blocco {index})',
     aiSumApplyCommands: 'Applica comandi di formattazione',
     aiCmdNone: 'Nessun blocco corrispondente; il documento non è stato modificato.',
     aiCmdNoneSkipped:
@@ -1467,6 +1493,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Wstawiono wykres „{title}”',
     aiSumEditChart: 'Edytuj wykres',
     aiSumEditedChart: 'Edytowano dane wykresu (blok {index})',
+    aiSumUpdateTableCells: 'Aktualizuj komórki tabeli',
+    aiSumUpdatedTableCells: 'Zaktualizowano komórki tabeli (blok {index})',
     aiSumApplyCommands: 'Zastosuj polecenia formatowania',
     aiCmdNone: 'Brak pasujących bloków; dokument nie został zmieniony.',
     aiCmdNoneSkipped:
@@ -1573,6 +1601,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Grafiek "{title}" ingevoegd',
     aiSumEditChart: 'Grafiek bewerken',
     aiSumEditedChart: 'Grafiekgegevens bewerkt (blok {index})',
+    aiSumUpdateTableCells: 'Tabelcellen bijwerken',
+    aiSumUpdatedTableCells: 'Tabelcellen bijgewerkt (blok {index})',
     aiSumApplyCommands: 'Opmaakopdrachten toepassen',
     aiCmdNone: 'Geen overeenkomende blokken; het document is niet gewijzigd.',
     aiCmdNoneSkipped:
@@ -1678,6 +1708,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'Carta "{title}" disisipkan',
     aiSumEditChart: 'Edit carta',
     aiSumEditedChart: 'Data carta diedit (blok {index})',
+    aiSumUpdateTableCells: 'Kemas kini sel jadual',
+    aiSumUpdatedTableCells: 'Sel jadual dikemas kini (blok {index})',
     aiSumApplyCommands: 'Guna perintah pemformatan',
     aiCmdNone: 'Tiada blok sepadan; dokumen tidak diubah.',
     aiCmdNoneSkipped:
@@ -1781,6 +1813,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'הוסף תרשים "{title}"',
     aiSumEditChart: 'עריכת תרשים',
     aiSumEditedChart: 'נערכו נתוני התרשים (בלוק {index})',
+    aiSumUpdateTableCells: 'עדכון תאי טבלה',
+    aiSumUpdatedTableCells: 'עודכנו תאי טבלה (בלוק {index})',
     aiSumApplyCommands: 'החלת פקודות עיצוב',
     aiCmdNone: 'לא נמצאו בלוקים מתאימים; המסמך לא שונה.',
     aiCmdNoneSkipped:
@@ -1886,6 +1920,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: 'चार्ट "{title}" सम्मिलित किया गया',
     aiSumEditChart: 'चार्ट संपादित करें',
     aiSumEditedChart: 'चार्ट डेटा संपादित किया गया (ब्लॉक {index})',
+    aiSumUpdateTableCells: 'तालिका सेल अद्यतन करें',
+    aiSumUpdatedTableCells: 'तालिका सेल अद्यतन किए गए (ब्लॉक {index})',
     aiSumApplyCommands: 'स्वरूपण आदेश लागू करें',
     aiCmdNone: 'कोई मेल खाता ब्लॉक नहीं; दस्तावेज़ में बदलाव नहीं हुआ।',
     aiCmdNoneSkipped:
@@ -1987,6 +2023,8 @@ export const aiStrings = defineStrings({
     aiSumInsertedChart: '插入圖表「{title}」',
     aiSumEditChart: '編輯圖表',
     aiSumEditedChart: '編輯圖表資料(區塊 {index})',
+    aiSumUpdateTableCells: '更新表格儲存格',
+    aiSumUpdatedTableCells: '更新表格儲存格(區塊 {index})',
     aiSumApplyCommands: '執行格式命令',
     aiCmdNone: '沒有命中需要修改的區塊,文件未變更。',
     aiCmdNoneSkipped:

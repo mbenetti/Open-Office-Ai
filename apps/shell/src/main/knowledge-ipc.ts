@@ -141,7 +141,10 @@ export function registerKnowledgeIpc(): void {
       o.knowledgeBaseId,
       o.topK ?? 5,
       getEmbeddingConfig(),
-      { mode: o.mode, scope: o.scope },
+      {
+        ...(o.mode ? { mode: o.mode } : {}),
+        ...(o.scope ? { scope: o.scope } : {}),
+      },
     )
   })
 

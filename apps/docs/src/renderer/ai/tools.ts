@@ -223,6 +223,33 @@ export const AGENT_TOOLS: AgentToolDef[] = [
       required: ['blockIndex'],
     },
   },
+  {
+    name: 'update_table_cells',
+    description:
+      'Update text/content in specific cells of an existing table by block index and row/column coordinates. ' +
+      'Preserves the original table structure, borders, shading, cell padding, and formatting 100% byte-for-byte on save.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        blockIndex: { type: 'integer', description: '0-based block index of the table' },
+        updates: {
+          type: 'array',
+          description: 'array of cell updates to apply to this table',
+          items: {
+            type: 'object',
+            properties: {
+              row: { type: 'integer', description: '0-based row index' },
+              col: { type: 'integer', description: '0-based column index' },
+              text: { type: 'string', description: 'new text for the cell' },
+              html: { type: 'string', description: 'optional restricted HTML for rich text in the cell' },
+            },
+            required: ['row', 'col'],
+          },
+        },
+      },
+      required: ['blockIndex', 'updates'],
+    },
+  },
 ]
 
 export interface ToolExecution {
@@ -261,6 +288,7 @@ const INDEX_WRITE_SUMMARIES: Record<string, () => string> = {
   apply_commands: () => t('aiSumApplyCommands'),
   insert_chart: () => t('aiSumInsertChart'),
   edit_chart: () => t('aiSumEditChart'),
+  update_table_cells: () => t('aiSumUpdateTableCells'),
 }
 
 const STALE_DOC_ERROR =
@@ -764,6 +792,109 @@ function executeSyncTool(
         output: `Updated the data of chart "${next.title ?? ''}" (changes are written back to the chart on save).`,
         mutated: true,
         summary: t('aiSumEditedChart', { index: idx }),
+      }
+    }
+
+    case 'update_table_cells': {
+      const idx = Number(call.input.blockIndex)
+      if (!Number.isInteger(idx) || idx < 0 || idx >= editor.state.doc.childCount) {
+        return fail(t('aiSumUpdateTableCells'), 'blockIndex invalid or out of range')
+      }
+      const tableNode = editor.state.doc.child(idx)
+      if (tableNode.type.name !== 'docTable') {
+        return fail(
+          t('aiSumUpdateTableCells'),
+          `block ${idx} is not a table (type is ${tableNode.type.name})`,
+        )
+      }
+      const updates = Array.isArray(call.input.updates)
+        ? (call.input.updates as Array<{ row?: unknown; col?: unknown; text?: unknown; html?: unknown }>)
+        : []
+      if (updates.length === 0) {
+        return fail(t('aiSumUpdateTableCells'), 'updates must be a non-empty array')
+      }
+
+      const positions = blockRangePositions(editor, idx, idx)
+      if (!positions) {
+        return fail(t('aiSumUpdateTableCells'), 'could not resolve block positions')
+      }
+
+      const tr = editor.state.tr
+      let appliedCount = 0
+
+      for (const update of updates) {
+        const rowIdx = Number(update.row)
+        const colIdx = Number(update.col)
+        if (!Number.isInteger(rowIdx) || rowIdx < 0 || rowIdx >= tableNode.childCount) {
+          continue
+        }
+        const rowNode = tableNode.child(rowIdx)
+        if (rowNode.type.name !== 'docTableRow') continue
+
+        if (!Number.isInteger(colIdx) || colIdx < 0 || colIdx >= rowNode.childCount) {
+          continue
+        }
+        const cellNode = rowNode.child(colIdx)
+        if (cellNode.type.name !== 'docTableCell' && cellNode.type.name !== 'docTableHeader') {
+          continue
+        }
+
+        let cellPos = positions.from + 1
+        for (let r = 0; r < rowIdx; r++) {
+          cellPos += tableNode.child(r).nodeSize
+        }
+        cellPos += 1
+        for (let c = 0; c < colIdx; c++) {
+          cellPos += rowNode.child(c).nodeSize
+        }
+
+        const newText = update.text !== undefined ? String(update.text) : undefined
+        const html = update.html !== undefined ? String(update.html) : undefined
+
+        let newParaNodes: ProseMirrorNode[] = []
+        if (html) {
+          try {
+            const parsed = parseHtmlFragment(html, numIds)
+            newParaNodes = parsed.map((n) => editor.schema.nodeFromJSON(n))
+          } catch {
+            /* fallback */
+          }
+        }
+        if (newParaNodes.length === 0 && newText !== undefined) {
+          const lines = newText.split('\n')
+          newParaNodes = lines.map((line) => {
+            const inlineNodes = line !== '' ? [editor.schema.text(line)] : []
+            return editor.schema.nodes.docParagraph.create(
+              { align: cellNode.attrs.align ?? null },
+              inlineNodes,
+            )
+          })
+        }
+
+        if (newParaNodes.length === 0) {
+          newParaNodes = [editor.schema.nodes.docParagraph.create()]
+        }
+
+        const cellContentStart = cellPos + 1
+        const cellContentEnd = cellPos + cellNode.nodeSize - 1
+
+        tr.replaceWith(tr.mapping.map(cellContentStart), tr.mapping.map(cellContentEnd), newParaNodes)
+        appliedCount++
+      }
+
+      if (appliedCount === 0) {
+        return fail(
+          t('aiSumUpdateTableCells'),
+          'no valid cell updates could be applied (check row/col indexes)',
+        )
+      }
+
+      editor.view.dispatch(tr)
+
+      return {
+        output: `Updated ${appliedCount} cell(s) in table at block ${idx}.`,
+        mutated: true,
+        summary: t('aiSumUpdatedTableCells', { index: idx, count: appliedCount }),
       }
     }
 
