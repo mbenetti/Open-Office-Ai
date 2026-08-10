@@ -462,6 +462,189 @@ function extractMarkdownHeadings(content: string): Array<{ id: string; level: nu
   return headings
 }
 
+function parseHtmlTableToReact(htmlBlock: string, key: number): React.ReactNode {
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(htmlBlock, 'text/html')
+    const table = doc.querySelector('table')
+    if (!table) return null
+
+    const trs = Array.from(table.querySelectorAll('tr'))
+    if (trs.length === 0) return null
+
+    const parsedRows = trs.map((tr) => {
+      const cells = Array.from(tr.querySelectorAll('th, td'))
+      return {
+        isHeader: cells.some((c) => c.tagName.toLowerCase() === 'th'),
+        cells: cells.map((c) => c.innerHTML.replace(/<br\s*\/?>/gi, ' ').trim()),
+      }
+    })
+
+    let headerRow = parsedRows.find((r) => r.isHeader)
+    if (!headerRow && parsedRows.length > 0) {
+      headerRow = parsedRows[0]
+    }
+
+    const headerCells = headerRow ? headerRow.cells : []
+    const dataRows = parsedRows.filter((r) => r !== headerRow)
+
+    return (
+      <div
+        key={key}
+        style={{
+          margin: '12px 0',
+          overflowX: 'auto',
+          maxWidth: '100%',
+        }}
+      >
+        <table
+          style={{
+            borderCollapse: 'collapse',
+            width: '100%',
+            fontSize: '13px',
+            border: '1px solid var(--border-color, #e0e0e0)',
+            borderRadius: '6px',
+            overflow: 'hidden',
+          }}
+        >
+          {headerCells.length > 0 && (
+            <thead>
+              <tr style={{ background: 'var(--surface-2, #f0f2f5)' }}>
+                {headerCells.map((c, cIdx) => (
+                  <th
+                    key={cIdx}
+                    style={{
+                      border: '1px solid var(--border-color, #e0e0e0)',
+                      padding: '8px 12px',
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      color: 'var(--text, #111)',
+                    }}
+                    dangerouslySetInnerHTML={{ __html: c }}
+                  />
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody>
+            {dataRows.map((row, rIdx) => (
+              <tr
+                key={rIdx}
+                style={{
+                  background: rIdx % 2 === 1 ? 'var(--surface-1, #f8f9fa)' : 'transparent',
+                }}
+              >
+                {row.cells.map((cell, cIdx) => (
+                  <td
+                    key={cIdx}
+                    style={{
+                      border: '1px solid var(--border-color, #e0e0e0)',
+                      padding: '6px 12px',
+                      color: 'var(--text, #222)',
+                    }}
+                    dangerouslySetInnerHTML={{ __html: cell }}
+                  />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  } catch {
+    return null
+  }
+}
+
+function parseMarkdownTableToReact(tableLines: string[], key: number): React.ReactNode {
+  const rows = tableLines.map((l) =>
+    l
+      .trim()
+      .replace(/^\|/, '')
+      .replace(/\|$/, '')
+      .split('|')
+      .map((c) => c.trim()),
+  )
+  if (rows.length === 0) return null
+
+  let headerCells: string[] = []
+  let bodyRows: string[][] = []
+
+  if (rows.length >= 2 && /^:?-+:?$/.test(rows[1][0]?.replace(/\s/g, '') ?? '')) {
+    headerCells = rows[0]
+    bodyRows = rows.slice(2)
+  } else {
+    headerCells = rows[0]
+    bodyRows = rows.slice(1)
+  }
+
+  return (
+    <div
+      key={key}
+      style={{
+        margin: '12px 0',
+        overflowX: 'auto',
+        maxWidth: '100%',
+      }}
+    >
+      <table
+        style={{
+          borderCollapse: 'collapse',
+          width: '100%',
+          fontSize: '13px',
+          border: '1px solid var(--border-color, #e0e0e0)',
+          borderRadius: '6px',
+          overflow: 'hidden',
+        }}
+      >
+        {headerCells.length > 0 && (
+          <thead>
+            <tr style={{ background: 'var(--surface-2, #f0f2f5)' }}>
+              {headerCells.map((c, cIdx) => (
+                <th
+                  key={cIdx}
+                  style={{
+                    border: '1px solid var(--border-color, #e0e0e0)',
+                    padding: '8px 12px',
+                    fontWeight: 600,
+                    textAlign: 'left',
+                    color: 'var(--text, #111)',
+                  }}
+                >
+                  {renderMarkdownInline(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {bodyRows.map((row, rIdx) => (
+            <tr
+              key={rIdx}
+              style={{
+                background: rIdx % 2 === 1 ? 'var(--surface-1, #f8f9fa)' : 'transparent',
+              }}
+            >
+              {row.map((cell, cIdx) => (
+                <td
+                  key={cIdx}
+                  style={{
+                    border: '1px solid var(--border-color, #e0e0e0)',
+                    padding: '6px 12px',
+                    color: 'var(--text, #222)',
+                  }}
+                >
+                  {renderMarkdownInline(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function MarkdownPreview({
   content,
   headingIds,
@@ -516,6 +699,34 @@ function MarkdownPreview({
     if (!trimmed) {
       elements.push(<div key={key++} style={{ height: 6 }} />)
       continue
+    }
+
+    // HTML Table
+    if (trimmed.toLowerCase().startsWith('<table') || trimmed.toLowerCase().startsWith('<tr')) {
+      const htmlLines: string[] = [line]
+      while (i + 1 < lines.length && !lines[i]!.toLowerCase().includes('</table>')) {
+        i++
+        htmlLines.push(lines[i]!)
+      }
+      const tableEl = parseHtmlTableToReact(htmlLines.join('\n'), key++)
+      if (tableEl) {
+        elements.push(tableEl)
+        continue
+      }
+    }
+
+    // Markdown Table
+    if (trimmed.startsWith('|')) {
+      const tableLines: string[] = [line]
+      while (i + 1 < lines.length && lines[i + 1]!.trim().startsWith('|')) {
+        i++
+        tableLines.push(lines[i]!)
+      }
+      const tableEl = parseMarkdownTableToReact(tableLines, key++)
+      if (tableEl) {
+        elements.push(tableEl)
+        continue
+      }
     }
 
     // Headings
