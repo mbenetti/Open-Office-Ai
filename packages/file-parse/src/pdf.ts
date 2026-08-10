@@ -119,7 +119,7 @@ async function pdfjsToMarkdown(bytes: Uint8Array): Promise<string> {
   }).promise
   try {
     const pagesMarkdown: string[] = []
-    
+
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i)
       const content = await page.getTextContent()
@@ -127,7 +127,6 @@ async function pdfjsToMarkdown(bytes: Uint8Array): Promise<string> {
       interface LineItem {
         text: string
         height: number
-        x: number
         y: number
         hasEOL: boolean
       }
@@ -148,7 +147,6 @@ async function pdfjsToMarkdown(bytes: Uint8Array): Promise<string> {
           lineItems.push({
             text: str,
             height: h || 10,
-            x: Array.isArray(item.transform) ? (item.transform[4] ?? 0) : 0,
             y: Array.isArray(item.transform) ? (item.transform[5] ?? 0) : 0,
             hasEOL: Boolean(item.hasEOL),
           })
@@ -160,117 +158,41 @@ async function pdfjsToMarkdown(bytes: Uint8Array): Promise<string> {
       heights.sort((a, b) => a - b)
       const medianHeight = heights.length > 0 ? heights[Math.floor(heights.length / 2)]! : 10
 
-      // Group items by y coordinate (bucketed by 3pt for layout tolerance)
-      const lineMap = new Map<number, LineItem[]>()
+      const pageLines: { text: string; maxH: number; y: number }[] = []
+      let curText = ''
+      let curMaxH = 0
+      let curY = 0
+
       for (const item of lineItems) {
-        if (!item.text.trim()) continue
-        const bucketY = Math.round(item.y / 3) * 3
-        if (!lineMap.has(bucketY)) lineMap.set(bucketY, [])
-        lineMap.get(bucketY)!.push(item)
-      }
-
-      const sortedY = Array.from(lineMap.keys()).sort((a, b) => b - a)
-      const linesWithCells: Array<{ cells: string[]; maxH: number; y: number }> = []
-
-      for (const y of sortedY) {
-        const rawItems = lineMap.get(y)!.sort((a, b) => a.x - b.x)
-        const cells: string[] = []
-        let curCell = ''
-        let lastXEnd = -1
-        let maxH = 0
-
-        for (const item of rawItems) {
-          if (item.height > maxH) maxH = item.height
-          if (lastXEnd >= 0 && item.x - lastXEnd > 18) {
-            if (curCell.trim()) cells.push(curCell.trim())
-            curCell = item.text.trim()
-          } else {
-            curCell = curCell ? `${curCell} ${item.text.trim()}` : item.text.trim()
+        if (!curText) curY = item.y
+        curText += item.text
+        if (item.height > curMaxH) curMaxH = item.height
+        if (item.hasEOL || curText.endsWith('\n')) {
+          const trimmed = curText.trim()
+          if (trimmed) {
+            pageLines.push({ text: trimmed, maxH: curMaxH, y: curY })
           }
-          lastXEnd = item.x + item.text.trim().length * (item.height * 0.5)
-        }
-        if (curCell.trim()) cells.push(curCell.trim())
-
-        if (cells.length > 0) {
-          linesWithCells.push({ cells, maxH, y })
+          curText = ''
+          curMaxH = 0
         }
       }
-
-      // Reconstruct Markdown tables vs Headings vs Paragraphs
-      const formattedBlocks: string[] = []
-      let tableBuffer: string[][] = []
-      let paraLines: string[] = []
-      let lastY: number | null = null
-      let lastH = 10
-
-      const flushPara = () => {
-        if (paraLines.length > 0) {
-          formattedBlocks.push(paraLines.join('\n'))
-          paraLines = []
-        }
+      if (curText.trim()) {
+        pageLines.push({ text: curText.trim(), maxH: curMaxH, y: curY })
       }
 
-      const flushTable = () => {
-        if (tableBuffer.length === 0) return
-        if (tableBuffer.length >= 1) {
-          const colCount = Math.max(...tableBuffer.map((r) => r.length))
-          if (colCount >= 2) {
-            for (const row of tableBuffer) {
-              while (row.length < colCount) row.push('')
-            }
-            const headerRow = tableBuffer[0]!
-            const headerLine = `| ${headerRow.join(' | ')} |`
-            const dividerLine = `| ${Array(colCount).fill('---').join(' | ')} |`
-            const bodyLines = tableBuffer.slice(1).map((r) => `| ${r.join(' | ')} |`)
-            formattedBlocks.push([headerLine, dividerLine, ...bodyLines].join('\n'))
-            tableBuffer = []
-            return
-          }
-        }
-        for (const row of tableBuffer) {
-          paraLines.push(row.join(' '))
-        }
-        tableBuffer = []
-      }
-
-      for (const line of linesWithCells) {
-        if (line.cells.length >= 2) {
-          flushPara()
-          tableBuffer.push(line.cells)
-        } else if (tableBuffer.length > 0) {
-          // Continuation line for first column cell of last table row
-          const lastRow = tableBuffer[tableBuffer.length - 1]
-          if (lastRow) {
-            lastRow[0] = (lastRow[0] + ' ' + line.cells[0]).trim()
-          }
+      const formattedLines: string[] = []
+      for (let j = 0; j < pageLines.length; j++) {
+        const l = pageLines[j]!
+        if (l.maxH >= medianHeight * 1.4) {
+          formattedLines.push(`# ${l.text}`)
+        } else if (l.maxH >= medianHeight * 1.25) {
+          formattedLines.push(`## ${l.text}`)
         } else {
-          flushTable()
-          const text = line.cells[0]!
-          const isHeading = line.maxH >= medianHeight * 1.25
-
-          if (isHeading) {
-            flushPara()
-            if (line.maxH >= medianHeight * 1.4) {
-              formattedBlocks.push(`# ${text}`)
-            } else {
-              formattedBlocks.push(`## ${text}`)
-            }
-            lastY = null
-          } else {
-            // Check vertical gap from last line in paragraph
-            if (lastY !== null && Math.abs(lastY - line.y) > lastH * 1.8) {
-              flushPara()
-            }
-            paraLines.push(text)
-            lastY = line.y
-            lastH = line.maxH
-          }
+          formattedLines.push(l.text)
         }
       }
-      flushTable()
-      flushPara()
 
-      pagesMarkdown.push(formattedBlocks.join('\n\n'))
+      pagesMarkdown.push(formattedLines.join('\n\n'))
       page.cleanup()
     }
 
