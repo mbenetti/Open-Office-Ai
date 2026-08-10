@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+import { processPdf } from '@firecrawl/pdf-inspector'
 
 // pdfjs needs the standard_fonts data directory for non-embedded standard fonts
 // (Helvetica etc.); under Node a filesystem path works (same usage as the official
@@ -84,13 +85,27 @@ function installDomMatrixPolyfill(): void {
   g.DOMMatrix = DOMMatrixPolyfill
 }
 
-/** extract text from a pdf with pdfjs-dist (pure JS, no native deps), one section per page */
+/** extract text from a pdf using @firecrawl/pdf-inspector (with pdfjs fallback) */
 export async function pdfToText(bytes: Uint8Array): Promise<string> {
   return pdfToMarkdown(bytes)
 }
 
-/** Convert PDF to structured Markdown based on text positioning and font height metrics */
+/** Convert PDF to structured Markdown using @firecrawl/pdf-inspector with pdfjs fallback */
 export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
+  try {
+    const buffer = Buffer.from(bytes)
+    const result = processPdf(buffer)
+    if (result && typeof result.markdown === 'string' && result.markdown.trim().length > 0) {
+      return result.markdown.trim()
+    }
+  } catch (err) {
+    console.warn('[file-parse] @firecrawl/pdf-inspector processPdf failed, falling back to pdfjs:', err)
+  }
+
+  return pdfjsToMarkdown(bytes)
+}
+
+async function pdfjsToMarkdown(bytes: Uint8Array): Promise<string> {
   installDomMatrixPolyfill()
   // @ts-expect-error the worker build artifact has no type declarations
   await import('pdfjs-dist/legacy/build/pdf.worker.mjs')

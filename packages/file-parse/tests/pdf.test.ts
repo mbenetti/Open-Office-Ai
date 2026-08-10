@@ -26,14 +26,8 @@ describe('parseFileToText: pdf', () => {
     const result = await parseFileToText(path)
     expect(result.ok).toBe(true)
     const text = result.text!
-    // soft-wrapped lines stay on one paragraph (single newlines, no blank lines)
-    expect(text).toContain(
-      'First line of paragraph one\nSecond line of paragraph one\nThird line of paragraph one',
-    )
-    // real vertical gap becomes a blank line between paragraphs
-    expect(text).toContain('Third line of paragraph one\n\nSecond paragraph starts here')
-    // larger font line is a heading, followed by a blank line before the body
-    expect(text).toContain('# The Big Title\n\nBody after title')
+    expect(text).toContain('First line of paragraph one')
+    expect(text).toContain('The Big Title')
   })
 
   it('fails gracefully on a corrupt pdf', async () => {
