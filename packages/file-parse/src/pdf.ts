@@ -112,7 +112,7 @@ export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
       interface LineItem {
         text: string
         height: number
-        /** vertical position of the item (transform[5]); used for paragraph-break detection */
+        x: number
         y: number
         hasEOL: boolean
       }
@@ -124,9 +124,6 @@ export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
         if ('str' in item && typeof item.str === 'string') {
           const str = item.str
           let h = item.height
-          // pdfjs emits empty "phantom" items (height 0) to signal line breaks;
-          // their transform[3] is the NEXT run's font scale, so only fall back
-          // to transform[3] when the item carries real text.
           if (!h && str.trim().length > 0 && Array.isArray(item.transform) && item.transform[3]) {
             h = Math.abs(item.transform[3])
           }
@@ -136,94 +133,129 @@ export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
           lineItems.push({
             text: str,
             height: h || 10,
+            x: Array.isArray(item.transform) ? (item.transform[4] ?? 0) : 0,
             y: Array.isArray(item.transform) ? (item.transform[5] ?? 0) : 0,
             hasEOL: Boolean(item.hasEOL),
           })
         }
       }
 
+      if (lineItems.length === 0) continue
+
       heights.sort((a, b) => a - b)
       const medianHeight = heights.length > 0 ? heights[Math.floor(heights.length / 2)]! : 10
 
-      // Reconstruct lines: merge same-line items and keep the first item's y
-      // (visual line position) so paragraph breaks can be detected later.
-      const pageLines: { text: string; maxH: number; y: number }[] = []
-      let curText = ''
-      let curMaxH = 0
-      let curY = 0
-
+      // Group items by y coordinate (bucketed by 3pt for layout tolerance)
+      const lineMap = new Map<number, LineItem[]>()
       for (const item of lineItems) {
-        if (!curText) curY = item.y
-        curText += item.text
-        if (item.height > curMaxH) curMaxH = item.height
-        if (item.hasEOL || curText.endsWith('\n')) {
-          const trimmed = curText.trim()
-          if (trimmed) {
-            pageLines.push({ text: trimmed, maxH: curMaxH, y: curY })
+        if (!item.text.trim()) continue
+        const bucketY = Math.round(item.y / 3) * 3
+        if (!lineMap.has(bucketY)) lineMap.set(bucketY, [])
+        lineMap.get(bucketY)!.push(item)
+      }
+
+      const sortedY = Array.from(lineMap.keys()).sort((a, b) => b - a)
+      const linesWithCells: Array<{ cells: string[]; maxH: number; y: number }> = []
+
+      for (const y of sortedY) {
+        const rawItems = lineMap.get(y)!.sort((a, b) => a.x - b.x)
+        const cells: string[] = []
+        let curCell = ''
+        let lastXEnd = -1
+        let maxH = 0
+
+        for (const item of rawItems) {
+          if (item.height > maxH) maxH = item.height
+          if (lastXEnd >= 0 && item.x - lastXEnd > 18) {
+            if (curCell.trim()) cells.push(curCell.trim())
+            curCell = item.text.trim()
+          } else {
+            curCell = curCell ? `${curCell} ${item.text.trim()}` : item.text.trim()
           }
-          curText = ''
-          curMaxH = 0
+          lastXEnd = item.x + item.text.trim().length * (item.height * 0.5)
+        }
+        if (curCell.trim()) cells.push(curCell.trim())
+
+        if (cells.length > 0) {
+          linesWithCells.push({ cells, maxH, y })
         }
       }
-      if (curText.trim()) {
-        pageLines.push({ text: curText.trim(), maxH: curMaxH, y: curY })
+
+      // Reconstruct Markdown tables vs Headings vs Paragraphs
+      const formattedBlocks: string[] = []
+      let tableBuffer: string[][] = []
+      let paraLines: string[] = []
+      let lastY: number | null = null
+      let lastH = 10
+
+      const flushPara = () => {
+        if (paraLines.length > 0) {
+          formattedBlocks.push(paraLines.join('\n'))
+          paraLines = []
+        }
       }
 
-      // Pre-pass: merge consecutive lines belonging to a multi-line heading
-      const mergedPageLines: { text: string; maxH: number; y: number }[] = []
-      for (const line of pageLines) {
-        if (mergedPageLines.length > 0) {
-          const prev = mergedPageLines[mergedPageLines.length - 1]!
-          const prevIsHeading = prev.maxH >= medianHeight * 1.1
-          const curIsHeading = line.maxH >= medianHeight * 1.1
-          const heightRatio = Math.max(prev.maxH, line.maxH) / Math.min(prev.maxH, line.maxH)
-          const verticalGap = Math.abs(prev.y - line.y)
-
-          if (prevIsHeading && curIsHeading && heightRatio <= 1.25 && verticalGap <= prev.maxH * 1.8) {
-            prev.text = `${prev.text} ${line.text}`
-            prev.maxH = Math.max(prev.maxH, line.maxH)
-            prev.y = line.y
-            continue
+      const flushTable = () => {
+        if (tableBuffer.length === 0) return
+        if (tableBuffer.length >= 1) {
+          const colCount = Math.max(...tableBuffer.map((r) => r.length))
+          if (colCount >= 2) {
+            for (const row of tableBuffer) {
+              while (row.length < colCount) row.push('')
+            }
+            const headerRow = tableBuffer[0]!
+            const headerLine = `| ${headerRow.join(' | ')} |`
+            const dividerLine = `| ${Array(colCount).fill('---').join(' | ')} |`
+            const bodyLines = tableBuffer.slice(1).map((r) => `| ${r.join(' | ')} |`)
+            formattedBlocks.push([headerLine, dividerLine, ...bodyLines].join('\n'))
+            tableBuffer = []
+            return
           }
         }
-        mergedPageLines.push({ ...line })
+        for (const row of tableBuffer) {
+          paraLines.push(row.join(' '))
+        }
+        tableBuffer = []
       }
 
-      const formattedLines: string[] = []
-      let pageHasHeader = false
-
-      for (let i = 0; i < mergedPageLines.length; i++) {
-        const l = mergedPageLines[i]!
-        const isHeading = l.maxH >= medianHeight * 1.1
-        let out: string
-        if (l.maxH >= medianHeight * 1.4) {
-          out = `# ${l.text}`
-          pageHasHeader = true
-        } else if (l.maxH >= medianHeight * 1.25) {
-          out = `## ${l.text}`
-          pageHasHeader = true
-        } else if (isHeading) {
-          out = `### ${l.text}`
-          pageHasHeader = true
+      for (const line of linesWithCells) {
+        if (line.cells.length >= 2) {
+          flushPara()
+          tableBuffer.push(line.cells)
+        } else if (tableBuffer.length > 0) {
+          // Continuation line for first column cell of last table row
+          const lastRow = tableBuffer[tableBuffer.length - 1]
+          if (lastRow) {
+            lastRow[0] = (lastRow[0] + ' ' + line.cells[0]).trim()
+          }
         } else {
-          out = l.text
-        }
+          flushTable()
+          const text = line.cells[0]!
+          const isHeading = line.maxH >= medianHeight * 1.25
 
-        if (formattedLines.length > 0) {
-          const prev = mergedPageLines[i - 1]!
-          const prevWasHeading = prev.maxH >= medianHeight * 1.1
-          const gap = Math.abs(l.y - prev.y)
-          const paragraphBreak = !isHeading && gap > prev.maxH * 1.7
-          if (prevWasHeading || paragraphBreak) {
-            formattedLines.push('')
+          if (isHeading) {
+            flushPara()
+            if (line.maxH >= medianHeight * 1.4) {
+              formattedBlocks.push(`# ${text}`)
+            } else {
+              formattedBlocks.push(`## ${text}`)
+            }
+            lastY = null
+          } else {
+            // Check vertical gap from last line in paragraph
+            if (lastY !== null && Math.abs(lastY - line.y) > lastH * 1.8) {
+              flushPara()
+            }
+            paraLines.push(text)
+            lastY = line.y
+            lastH = line.maxH
           }
         }
-        formattedLines.push(out)
       }
+      flushTable()
+      flushPara()
 
-
-
-      pagesMarkdown.push(formattedLines.join('\n'))
+      pagesMarkdown.push(formattedBlocks.join('\n\n'))
       page.cleanup()
     }
 
