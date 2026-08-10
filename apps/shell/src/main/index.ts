@@ -122,6 +122,9 @@ import { initAutoUpdater } from './updater'
  * apps/sheets/out), so build those before running the shell.
  */
 
+// Set the application name explicitly to ensure consistency across platforms and environments
+app.setName('Open Office Ai')
+
 // ANY unpacked run (`npm run shell`, `npm run dev`, `npx electron .`) must not
 // share the installed app's userData or single-instance lock — otherwise a dev
 // run silently quits and forwards its argv to the running installed GenOffice.
@@ -130,7 +133,7 @@ import { initAutoUpdater } from './updater'
 if (!app.isPackaged)
   app.setPath(
     'userData',
-    process.env.GENOFFICE_USER_DATA ?? join(app.getPath('appData'), 'GenOffice Dev'),
+    process.env.GENOFFICE_USER_DATA ?? join(app.getPath('appData'), 'Open Office Ai Dev'),
   )
 
 // The product rename from "AI Office" to GenOffice changed the userData path; migrate old user data once

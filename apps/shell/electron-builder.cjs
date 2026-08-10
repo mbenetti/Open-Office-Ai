@@ -34,6 +34,7 @@ const hasAppleCredentials =
 const config = {
   appId: 'com.openofficeai.app',
   productName: 'Open Office Ai',
+  copyright: 'Copyright © 2026 Open Office Ai',
   electronVersion: '41.7.1',
   directories: {
     output: 'release',

@@ -6,7 +6,7 @@
   "private": true,
   "description": "Unified GenOffice shell: one app hosting the docs and sheets modules behind a home/launcher window",
   "homepage": "https://github.com/mbenetti",
-  "author": "GenOffice",
+  "author": "Open Office Ai",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev --watch",
