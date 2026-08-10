@@ -1,5 +1,4 @@
 import { isInvalidPageHeaderTitle } from './page-header'
-import { convertHtmlTablesToMarkdown } from './table-converter'
 
 export interface DocumentChunk {
   chunkIndex: number
@@ -201,7 +200,7 @@ export function chunkMarkdownDocument(
   options: ChunkingOptions = {},
 ): DocumentChunk[] {
   const maxChunkSize = options.maxChunkSize ?? 2000
-  const normalized = convertHtmlTablesToMarkdown(rawText).replace(/\r\n/g, '\n').trim()
+  const normalized = rawText.replace(/\r\n/g, '\n').trim()
   if (!normalized) return []
 
   const lines = normalized.split('\n')
