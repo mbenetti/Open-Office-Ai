@@ -8,7 +8,7 @@ export interface DocumentChunk {
 }
 
 export interface ChunkingOptions {
-  maxChunkSize?: number // default 2000
+  maxChunkSize?: number // default 4000
 }
 
 interface HeaderNode {
@@ -199,7 +199,7 @@ export function chunkMarkdownDocument(
   rawText: string,
   options: ChunkingOptions = {},
 ): DocumentChunk[] {
-  const maxChunkSize = options.maxChunkSize ?? 2000
+  const maxChunkSize = options.maxChunkSize ?? 4000
   const normalized = rawText.replace(/\r\n/g, '\n').trim()
   if (!normalized) return []
 

@@ -396,7 +396,7 @@ export class KnowledgeStore {
       }
     }
 
-    const chunks = chunkMarkdownDocument(parsed.text, { maxChunkSize: 2000 })
+    const chunks = chunkMarkdownDocument(parsed.text, { maxChunkSize: 4000 })
     if (chunks.length === 0) {
       return {
         ok: false,
