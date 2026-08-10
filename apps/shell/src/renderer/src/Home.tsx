@@ -704,7 +704,7 @@ function MarkdownPreview({
     // HTML Table
     if (trimmed.toLowerCase().startsWith('<table') || trimmed.toLowerCase().startsWith('<tr')) {
       const htmlLines: string[] = [line]
-      while (i + 1 < lines.length && !lines[i]!.toLowerCase().includes('</table>')) {
+      while (i + 1 < lines.length && !htmlLines[htmlLines.length - 1]!.toLowerCase().includes('</table>')) {
         i++
         htmlLines.push(lines[i]!)
       }

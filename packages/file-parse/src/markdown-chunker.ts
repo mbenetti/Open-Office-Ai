@@ -1,4 +1,5 @@
 import { isInvalidPageHeaderTitle } from './page-header'
+import { convertHtmlTablesToMarkdown } from './table-converter'
 
 export interface DocumentChunk {
   chunkIndex: number
@@ -101,8 +102,8 @@ function parseAtomicUnits(text: string): string[] {
     }
 
     // 3. Table line check (| ... |)
-    const isTableLine = trimmed.startsWith('|') && trimmed.endsWith('|')
-    const prevIsTable = currentUnitLines.length > 0 && currentUnitLines[0]!.trim().startsWith('|')
+    const isTableLine = (trimmed.startsWith('|') && trimmed.endsWith('|')) || trimmed.startsWith('<table')
+    const prevIsTable = currentUnitLines.length > 0 && (currentUnitLines[0]!.trim().startsWith('|') || currentUnitLines[0]!.trim().startsWith('<table'))
     if (isTableLine) {
       if (!prevIsTable) {
         flushUnit()
@@ -200,7 +201,7 @@ export function chunkMarkdownDocument(
   options: ChunkingOptions = {},
 ): DocumentChunk[] {
   const maxChunkSize = options.maxChunkSize ?? 2000
-  const normalized = rawText.replace(/\r\n/g, '\n').trim()
+  const normalized = convertHtmlTablesToMarkdown(rawText).replace(/\r\n/g, '\n').trim()
   if (!normalized) return []
 
   const lines = normalized.split('\n')
