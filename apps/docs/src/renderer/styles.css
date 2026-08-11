@@ -6995,3 +6995,15 @@ tr > .page-gap-cut {
 .ai-login-btn:hover {
   opacity: 0.88;
 }
+
+/* ---- Proofing / LanguageTool Underlines ---- */
+.proofing-error {
+  text-decoration: underline dotted #d9381e 2px;
+  text-underline-offset: 3px;
+}
+
+.proofing-error-active {
+  background: rgba(242, 185, 0, 0.15);
+  text-decoration: underline wavy #d9381e 2px;
+  text-underline-offset: 3px;
+}

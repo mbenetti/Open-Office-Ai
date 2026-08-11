@@ -175,6 +175,10 @@ export interface PdfApi {
   getLanguage(): Promise<Lang>
   onLanguageChanged(handler: (lang: Lang) => void): () => void
   getAiSettings(): Promise<AiSettings>
+  correctGrammar(
+    text: string,
+    language?: string,
+  ): Promise<{ ok: boolean; correctedText?: string; language?: string; engineUsed?: string; error?: string }>
   aiStream(request: AiStreamRequest): Promise<void>
   aiStreamCancel(requestId: string): Promise<void>
   onAiStream(handler: (chunk: AiStreamChunk) => void): () => void

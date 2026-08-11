@@ -29,16 +29,36 @@ Text for section 1.
 Text for section 2.`
 
     const chunks = chunkMarkdownDocument(raw)
-    expect(chunks).toHaveLength(2)
+    // Adjacent small sections are merged into a single chunk (up to maxChunkSize).
+    expect(chunks).toHaveLength(1)
 
     expect(chunks[0]!.headerPath).toBe('# Chapter 1 > ## Section 1')
     expect(chunks[0]!.text).toBe(`# Chapter 1
 ## Section 1
-Text for section 1.`)
+Text for section 1.
 
-    expect(chunks[1]!.headerPath).toBe('# Chapter 1 > ## Section 2')
-    expect(chunks[1]!.text).toBe(`## Section 2
+## Section 2
 Text for section 2.`)
+
+    // Full document reconstruction check
+    const reconstructed = chunks.map((c) => c.text).join('\n\n')
+    expect(reconstructed).toBe(raw)
+  })
+
+  it('merges adjacent sections into chunks up to maxChunkSize', () => {
+    const section = (n: number) => `## Section ${n}\n${String(n).repeat(300)}`
+    const raw = `# Chapter 1\n${section(1)}\n\n${section(2)}\n\n${section(3)}\n\n${section(4)}`
+
+    const chunks = chunkMarkdownDocument(raw, { maxChunkSize: 1200 })
+    // Each section is ≈312 chars; three fit in 1200, four don't → 2 chunks
+    // where the first merges three sections (proving adjacent merging).
+    expect(chunks).toHaveLength(2)
+    for (const c of chunks) {
+      expect(c.text.length).toBeLessThanOrEqual(1200)
+    }
+    expect(chunks[0]!.text.length).toBeGreaterThan(600)
+    expect(chunks[0]!.headerPath).toBe('# Chapter 1 > ## Section 1')
+    expect(chunks[1]!.headerPath).toBe('# Chapter 1 > ## Section 4')
 
     // Full document reconstruction check
     const reconstructed = chunks.map((c) => c.text).join('\n\n')

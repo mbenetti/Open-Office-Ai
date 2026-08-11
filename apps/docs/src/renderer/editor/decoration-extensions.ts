@@ -578,3 +578,39 @@ export const UnfocusedSelectionExtension = Extension.create({
     ]
   },
 })
+
+export const proofingPluginKey = new PluginKey<DecorationSet>('docProofing')
+
+export const ProofingHighlightExtension = Extension.create({
+  name: 'docProofing',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: proofingPluginKey,
+        state: {
+          init: () => DecorationSet.empty,
+          apply(tr, old) {
+            const meta = tr.getMeta(proofingPluginKey) as { ranges: Array<{ from: number; to: number; active?: boolean }> } | undefined
+            if (meta) {
+              if (meta.ranges.length === 0) return DecorationSet.empty
+              return DecorationSet.create(
+                tr.doc,
+                meta.ranges.map((r) =>
+                  Decoration.inline(r.from, r.to, {
+                    class: r.active ? 'proofing-error proofing-error-active' : 'proofing-error',
+                  }),
+                ),
+              )
+            }
+            return old.map(tr.mapping, tr.doc)
+          },
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state)
+          },
+        },
+      }),
+    ]
+  },
+})

@@ -1,6 +1,48 @@
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { processPdf } from '@firecrawl/pdf-inspector'
+
+/**
+ * @firecrawl/pdf-inspector is a napi-rs native module: its JS loader requires a
+ * platform-specific .node binary at import time and throws when that binary is
+ * missing (e.g. a packaged build without asarUnpack or without the matching
+ * platform optional dependency). Load it lazily so a missing binary degrades to
+ * the pdfjs fallback with a clear log instead of breaking the whole module (and
+ * with it every PDF parse in the app).
+ */
+interface PdfInspectorResult {
+  markdown?: string | null
+  pdfType?: string
+}
+interface PdfInspectorModule {
+  processPdf(buffer: Buffer): PdfInspectorResult
+}
+let pdfInspectorModulePromise: Promise<PdfInspectorModule | undefined> | undefined
+function loadPdfInspector(): Promise<PdfInspectorModule | undefined> {
+  if (!pdfInspectorModulePromise) {
+    // Dynamic import (not a static import): rollup still bundles the module and
+    // its .node asset, but the napi loader's module-init throw (missing binary)
+    // surfaces here as a rejected promise we can catch — a static import would
+    // crash the whole app at startup instead of degrading to the pdfjs fallback.
+    pdfInspectorModulePromise = import('@firecrawl/pdf-inspector')
+      .then((mod) => {
+        const m = mod as PdfInspectorModule & { default?: PdfInspectorModule }
+        // CJS packages imported through the ESM loader may surface named exports
+        // either directly on the namespace or under `default`.
+        if (typeof m.processPdf !== 'function' && typeof m.default?.processPdf === 'function') {
+          return m.default
+        }
+        return m
+      })
+      .catch((err) => {
+        console.warn(
+          '[file-parse] @firecrawl/pdf-inspector native binding unavailable; PDF parsing will fall back to pdfjs (Markdown tables will NOT be produced):',
+          err,
+        )
+        return undefined
+      })
+  }
+  return pdfInspectorModulePromise
+}
 
 // pdfjs needs the standard_fonts data directory for non-embedded standard fonts
 // (Helvetica etc.); under Node a filesystem path works (same usage as the official
@@ -92,14 +134,17 @@ export async function pdfToText(bytes: Uint8Array): Promise<string> {
 
 /** Convert PDF to structured Markdown using @firecrawl/pdf-inspector with pdfjs fallback */
 export async function pdfToMarkdown(bytes: Uint8Array): Promise<string> {
-  try {
-    const buffer = Buffer.from(bytes)
-    const result = processPdf(buffer)
-    if (result && typeof result.markdown === 'string' && result.markdown.trim().length > 0) {
-      return result.markdown.trim()
+  const mod = await loadPdfInspector()
+  if (mod?.processPdf) {
+    try {
+      const buffer = Buffer.from(bytes)
+      const result = mod.processPdf(buffer)
+      if (result && typeof result.markdown === 'string' && result.markdown.trim().length > 0) {
+        return result.markdown.trim()
+      }
+    } catch (err) {
+      console.warn('[file-parse] @firecrawl/pdf-inspector processPdf failed, falling back to pdfjs:', err)
     }
-  } catch (err) {
-    console.warn('[file-parse] @firecrawl/pdf-inspector processPdf failed, falling back to pdfjs:', err)
   }
 
   return pdfjsToMarkdown(bytes)

@@ -64,6 +64,7 @@ export function AiPanel({
   const [historicChat, setHistoricChat] = useState<ChatEntry[]>([])
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
+  const [isGrammarChecking, setIsGrammarChecking] = useState(false)
   const [phase, setPhase] = useState<Phase>('thinking')
   const [selectedKbId, setSelectedKbId] = useState<string | null>(null)
   const [knowledgeBases, setKnowledgeBases] = useState<Array<{ id: string; name: string }>>([])

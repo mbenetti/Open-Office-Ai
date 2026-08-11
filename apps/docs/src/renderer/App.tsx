@@ -28,6 +28,8 @@ import { AiPanel } from './ai/AiPanel'
 import { asianCharCount, countWords, nonAsianWordCount } from './word-count'
 import { toRoman } from './note-format'
 import { CommentsPanel } from './components/CommentsPanel'
+import { ProofingPanel } from './components/ProofingPanel'
+import type { LanguageToolMatch } from '@genoffice/ai-provider'
 import { StylesPanel } from './components/StylesPanel'
 import { EquationModal } from './components/EquationModal'
 import { HeaderFooterArea } from './components/HeaderFooterArea'
@@ -104,6 +106,7 @@ import {
   editorExtensions,
   resolvedCommentsPluginKey,
   revisionDisplayState,
+  proofingPluginKey,
 } from './editor/extensions'
 import { type InkAnnotation, type InkTool } from './editor/ink'
 import { InkOverlay } from './components/InkOverlay'
@@ -426,6 +429,12 @@ export function App() {
   const [splitHtml, setSplitHtml] = useState('')
   const [showFind, setShowFind] = useState(false)
   const [showComments, setShowComments] = useState(false)
+  const [proofingResult, setProofingResult] = useState<{
+    matches: LanguageToolMatch[]
+    languageName?: string
+    baseOffset?: number
+  } | null>(null)
+  const [activeProofingMatchIndex, setActiveProofingMatchIndex] = useState<number | null>(null)
   const [showStylesPanel, setShowStylesPanel] = useState(false)
   /** Style definitions pending write-back (key = styleId), saved via SaveOptions.styleUpserts */
   const [styleUpserts, setStyleUpserts] = useState<Record<string, StyleUpsert>>({})
@@ -616,6 +625,33 @@ export function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [editor, readMode, isProtected])
+
+  // Track Changes: the recorder plugin reads its toggle from extension storage
+  useEffect(() => {
+    if (!editor) return
+
+    const ranges = proofingResult
+      ? proofingResult.matches.map((m, idx) => {
+          const badSnippet = m.context?.text?.slice(m.context.offset, m.context.offset + m.length) || ''
+          const docText = editor.getText()
+          const targetOffset = (proofingResult.baseOffset ?? 0) + m.offset
+          const foundIdx = badSnippet && docText.indexOf(badSnippet, Math.max(0, targetOffset - 20)) >= 0
+            ? docText.indexOf(badSnippet, Math.max(0, targetOffset - 20))
+            : badSnippet ? docText.indexOf(badSnippet) : -1
+
+          if (foundIdx >= 0) {
+            return {
+              from: foundIdx + 1,
+              to: foundIdx + 1 + badSnippet.length,
+              active: activeProofingMatchIndex === idx,
+            }
+          }
+          return null
+        }).filter(Boolean) as Array<{ from: number; to: number; active: boolean }>
+      : []
+
+    editor.view.dispatch(editor.state.tr.setMeta(proofingPluginKey, { ranges }))
+  }, [editor, proofingResult, activeProofingMatchIndex])
 
   // Track Changes: the recorder plugin reads its toggle from extension storage
   useEffect(() => {
@@ -2253,7 +2289,9 @@ export function App() {
     onOpen: () => void openFile(),
     onSave: () => void save(false),
     onSaveAs: () => void save(true),
-    onToggleAi: () => setShowAi((v) => !v),
+    onToggleAi: () => setShowAi((s) => !s),
+    onRunLanguageTool: (matches: LanguageToolMatch[], languageName?: string, baseOffset?: number) =>
+      setProofingResult({ matches, languageName, baseOffset }),
     onSection: (next: SectionSettings) => {
       // layout applies to the cursor's section; the final section's sectPr goes through SaveOptions.section (also drives canvas geometry)
       setSections((prev) =>
@@ -2344,6 +2382,50 @@ export function App() {
     onSplitView: setSplitView,
     onPagePreview: () => setShowPagePreview(true),
   })
+
+  const handleIgnoreMatch = useCallback((idx: number) => {
+    setProofingResult((prev) => {
+      if (!prev) return null
+      const nextMatches = prev.matches.filter((_, i) => i !== idx)
+      return { ...prev, matches: nextMatches }
+    })
+    setActiveProofingMatchIndex(null)
+  }, [])
+
+  const handleApplyMatch = useCallback((idx: number, replacement: string) => {
+    if (!editor || !proofingResult) return
+    const match = proofingResult.matches[idx]
+    if (!match) return
+
+    const badSnippet = match.context?.text?.slice(match.context.offset, match.context.offset + match.length) || ''
+    try {
+      const docText = editor.getText()
+      const targetOffset = (proofingResult.baseOffset ?? 0) + match.offset
+      const foundIdx = badSnippet && docText.indexOf(badSnippet, Math.max(0, targetOffset - 20)) >= 0
+        ? docText.indexOf(badSnippet, Math.max(0, targetOffset - 20))
+        : badSnippet ? docText.indexOf(badSnippet) : -1
+
+      if (foundIdx >= 0 && badSnippet) {
+        const from = foundIdx + 1
+        const to = from + badSnippet.length
+        editor.chain().focus().setTextSelection({ from, to }).insertContent(replacement).run()
+      } else {
+        const docSize = editor.state.doc.content.size
+        const from = Math.min(Math.max(1, targetOffset + 1), Math.max(1, docSize - 1))
+        const to = Math.min(from + match.length, docSize)
+        editor.chain().focus().setTextSelection({ from, to }).insertContent(replacement).run()
+      }
+    } catch (err) {
+      console.warn('Failed to apply replacement cleanly:', err)
+    }
+
+    setProofingResult((prev) => {
+      if (!prev) return null
+      const nextMatches = prev.matches.filter((_, i) => i !== idx)
+      return { ...prev, matches: nextMatches }
+    })
+    setActiveProofingMatchIndex(null)
+  }, [editor, proofingResult])
 
   const closeCommentsPanel = useCallback(() => {
     setShowComments(false)
@@ -2472,7 +2554,7 @@ export function App() {
         showRuler={showRuler}
         showNav={showNav}
         commentCount={comments.length}
-        canComment={!editor.state.selection.empty}
+        canComment={Boolean(editor && !editor.state.selection.empty)}
         trackChanges={trackChanges}
         revisionDisplay={revisionDisplay}
         revisionCount={revisionCount}
@@ -2750,6 +2832,22 @@ export function App() {
             onClose={() => setCompareResult(null)}
           />
         )}
+        {doc && proofingResult && (
+          <ProofingPanel
+            editor={editor}
+            languageName={proofingResult.languageName}
+            matches={proofingResult.matches}
+            baseOffset={proofingResult.baseOffset}
+            activeMatchIndex={activeProofingMatchIndex}
+            onSelectMatchIndex={setActiveProofingMatchIndex}
+            onIgnoreMatch={handleIgnoreMatch}
+            onApplyMatch={handleApplyMatch}
+            onClose={() => {
+              setProofingResult(null)
+              setActiveProofingMatchIndex(null)
+            }}
+          />
+        )}
       </div>
 
       <footer className="status-bar">
@@ -2825,6 +2923,9 @@ export function App() {
           onRestartNumbering={restartNumbering}
           onContinueNumbering={continueNumbering}
           onUpdateFields={updateFields}
+          onRunLanguageTool={(matches, languageName, baseOffset) =>
+            setProofingResult({ matches, languageName, baseOffset })
+          }
         />
       )}
       {doc && showFontDialog && (

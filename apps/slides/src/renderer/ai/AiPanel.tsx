@@ -247,6 +247,7 @@ export function AiPanel({
   const { t } = useI18n()
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [isGrammarChecking, setIsGrammarChecking] = useState(false)
   const [chat, setChat] = useState<ChatEntry[]>([])
   const [snapshots, setSnapshots] = useState<DeckSnapshot[]>([])
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)

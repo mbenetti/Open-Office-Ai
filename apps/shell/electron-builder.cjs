@@ -14,7 +14,6 @@
  * app-update.yml into the app and in-app auto-update stays disabled.
  */
 
-const { existsSync } = require('node:fs')
 const { join } = require('node:path')
 
 const updateUrl = process.env.GENOFFICE_UPDATE_URL
@@ -40,6 +39,12 @@ const config = {
     output: 'release',
   },
   files: ['out/**'],
+  // @firecrawl/pdf-inspector is a napi-rs native module: its .node binaries ship
+  // via node_modules (root package.json dependencies/optionalDependencies) and
+  // must live outside app.asar — dlopen cannot load native code from inside an
+  // asar archive, and on failure PDF parsing silently degrades to the pdfjs
+  // fallback (plain text, no Markdown tables).
+  asarUnpack: ['**/*.node'],
   extraResources: [
     {
       from: 'build/THIRD-PARTY-NOTICES.txt',

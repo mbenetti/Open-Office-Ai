@@ -1,4 +1,4 @@
-import type { AiSettings } from '@genoffice/ai-provider'
+import type { AiSettings, GrammarLanguage } from '@genoffice/ai-provider'
 import type {
   KnowledgeDocument,
   KnowledgeChunkRecord,
@@ -157,6 +157,10 @@ export interface HomeApi {
   /** AI Settings (persisted in userData/ai-settings.json) */
   getAiSettings(): Promise<AiSettings>
   setAiSettings(settings: AiSettings): Promise<void>
+  correctGrammar(
+    text: string,
+    language?: GrammarLanguage,
+  ): Promise<{ ok: boolean; correctedText?: string; language?: string; engineUsed?: string; error?: string }>
   /** app version (from package.json / electron app.getVersion) */
   getAppVersion(): Promise<string>
   /** whether the first-run onboarding has been completed or skipped (persisted in userData/app-settings.json) */

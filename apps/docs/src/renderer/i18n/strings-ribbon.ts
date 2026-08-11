@@ -432,11 +432,12 @@ export const ribbonStrings = defineStrings({
     ribbonSourceSiteName: '网站名',
     ribbonSourcePublisher: '出版社',
     // Review
-    ribbonEditorBtn: '编辑器',
+    ribbonReviewBtn: '校对',
+    ribbonEditorBtn: 'Ai Rewrite',
     ribbonEditorTip: 'AI 检查拼写、语法和标点',
     ribbonEditorPrompt: '校对全文:修正错别字、标点和语法错误,保持原意和段落结构不变。',
     ribbonGroupProofing: '校对',
-    ribbonTranslate: '翻译',
+    ribbonTranslate: 'Ai Translate',
     ribbonTranslateTip: 'AI 翻译文档',
     ribbonTranslatePrompt: '把全文翻译成{lang},保持段落结构和标题层级不变。',
     ribbonTranslateTo: '翻译为{lang}',
@@ -962,12 +963,13 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Journal Name',
     ribbonSourceSiteName: 'Site Name',
     ribbonSourcePublisher: 'Publisher',
-    ribbonEditorBtn: 'Editor',
+    ribbonReviewBtn: 'Review',
+    ribbonEditorBtn: 'Ai Rewrite',
     ribbonEditorTip: 'AI checks spelling, grammar and punctuation',
     ribbonEditorPrompt:
       'Proofread the entire document: fix typos, punctuation and grammar errors while keeping the original meaning and paragraph structure unchanged.',
     ribbonGroupProofing: 'Proofing',
-    ribbonTranslate: 'Translate',
+    ribbonTranslate: 'Ai Translate',
     ribbonTranslateTip: 'AI translates the document',
     ribbonTranslatePrompt:
       'Translate the entire document into {lang}, keeping the paragraph structure and heading levels unchanged.',
@@ -1513,6 +1515,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceSiteName: 'Web サイト名',
     ribbonSourcePublisher: '出版社',
     // Review
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'エディター',
     ribbonEditorTip: 'AI がスペル、文法、句読点をチェック',
     ribbonEditorPrompt:
@@ -2063,6 +2066,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceSiteName: '사이트 이름',
     ribbonSourcePublisher: '출판사',
     // Review
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: '편집기',
     ribbonEditorTip: 'AI가 맞춤법, 문법 및 문장 부호 검사',
     ribbonEditorPrompt:
@@ -2603,6 +2607,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nom de la revue',
     ribbonSourceSiteName: 'Nom du site',
     ribbonSourcePublisher: 'Éditeur',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Éditeur',
     ribbonEditorTip: "L'IA vérifie l'orthographe, la grammaire et la ponctuation",
     ribbonEditorPrompt:
@@ -3146,6 +3151,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Name der Zeitschrift',
     ribbonSourceSiteName: 'Name der Website',
     ribbonSourcePublisher: 'Verlag',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: 'KI prüft Rechtschreibung, Grammatik und Zeichensetzung',
     ribbonEditorPrompt:
@@ -3690,6 +3696,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nombre de la revista',
     ribbonSourceSiteName: 'Nombre del sitio',
     ribbonSourcePublisher: 'Editorial',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: 'La IA revisa ortografía, gramática y puntuación',
     ribbonEditorPrompt:
@@ -4226,6 +4233,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'ชื่อวารสาร',
     ribbonSourceSiteName: 'ชื่อเว็บไซต์',
     ribbonSourcePublisher: 'สำนักพิมพ์',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'ตัวตรวจแก้',
     ribbonEditorTip: 'AI ตรวจสอบการสะกด ไวยากรณ์ และเครื่องหมายวรรคตอน',
     ribbonEditorPrompt:
@@ -4757,6 +4765,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nama Jurnal',
     ribbonSourceSiteName: 'Nama Situs',
     ribbonSourcePublisher: 'Penerbit',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: 'AI memeriksa ejaan, tata bahasa, dan tanda baca',
     ribbonEditorPrompt:
@@ -5294,6 +5303,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Название журнала',
     ribbonSourceSiteName: 'Название сайта',
     ribbonSourcePublisher: 'Издательство',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Корректор',
     ribbonEditorTip: 'ИИ проверит орфографию, грамматику и пунктуацию',
     ribbonEditorPrompt:
@@ -5826,6 +5836,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'اسم المجلة',
     ribbonSourceSiteName: 'اسم الموقع',
     ribbonSourcePublisher: 'الناشر',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'المحرر',
     ribbonEditorTip: 'يتحقق الذكاء الاصطناعي من الإملاء والقواعد وعلامات الترقيم',
     ribbonEditorPrompt:
@@ -6359,6 +6370,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nome do Periódico',
     ribbonSourceSiteName: 'Nome do Site',
     ribbonSourcePublisher: 'Editora',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: 'A IA verifica ortografia, gramática e pontuação',
     ribbonEditorPrompt:
@@ -6898,6 +6910,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nome della rivista',
     ribbonSourceSiteName: 'Nome del sito',
     ribbonSourcePublisher: 'Editore',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: "L'IA controlla ortografia, grammatica e punteggiatura",
     ribbonEditorPrompt:
@@ -7438,6 +7451,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nazwa czasopisma',
     ribbonSourceSiteName: 'Nazwa witryny',
     ribbonSourcePublisher: 'Wydawca',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Edytor',
     ribbonEditorTip: 'AI sprawdzi pisownię, gramatykę i interpunkcję',
     ribbonEditorPrompt:
@@ -7978,6 +7992,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Naam van tijdschrift',
     ribbonSourceSiteName: 'Naam van website',
     ribbonSourcePublisher: 'Uitgever',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: 'AI controleert spelling, grammatica en interpunctie',
     ribbonEditorPrompt:
@@ -8517,6 +8532,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'Nama Jurnal',
     ribbonSourceSiteName: 'Nama Laman',
     ribbonSourcePublisher: 'Penerbit',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'Editor',
     ribbonEditorTip: 'AI menyemak ejaan, tatabahasa dan tanda baca',
     ribbonEditorPrompt:
@@ -9045,6 +9061,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'שם כתב העת',
     ribbonSourceSiteName: 'שם האתר',
     ribbonSourcePublisher: 'מוציא לאור',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'עורך',
     ribbonEditorTip: 'ה-AI בודק איות, דקדוק ופיסוק',
     ribbonEditorPrompt:
@@ -9577,6 +9594,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: 'पत्रिका का नाम',
     ribbonSourceSiteName: 'साइट का नाम',
     ribbonSourcePublisher: 'प्रकाशक',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: 'संपादक',
     ribbonEditorTip: 'AI वर्तनी, व्याकरण और विराम चिह्न जाँचता है',
     ribbonEditorPrompt:
@@ -10104,6 +10122,7 @@ export const ribbonStrings = defineStrings({
     ribbonSourceJournalName: '期刊名稱',
     ribbonSourceSiteName: '網站名稱',
     ribbonSourcePublisher: '出版社',
+    ribbonReviewBtn: 'Review',
     ribbonEditorBtn: '編輯器',
     ribbonEditorTip: 'AI 檢查拼字、文法和標點',
     ribbonEditorPrompt: '校對全文:修正錯別字、標點和語法錯誤,保持原意和段落結構不變。',

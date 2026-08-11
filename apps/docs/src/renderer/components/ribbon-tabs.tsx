@@ -13,6 +13,7 @@ import type { DocsTabInfo } from '../../shared/ipc'
 import { tableModelToPmNode } from '../editor/convert'
 import type { InkTool } from '../editor/ink'
 import { t, useI18n, type StringKey } from '../i18n/locale'
+import type { LanguageToolMatch } from '@genoffice/ai-provider'
 import {
   IconAccept,
   IconAiPanel,
@@ -482,6 +483,7 @@ export type RevisionDisplayMode = 'all' | 'none' | 'original'
 
 interface ReviewTabProps extends TabProps {
   onAiPreset: (instruction: string) => void
+  onRunLanguageTool?: (matches: LanguageToolMatch[], languageName?: string, baseOffset?: number) => void
   commentCount: number
   onShowComments: () => void
   /** create a comment on the current selection (disabled when selection is empty) */
@@ -502,10 +504,12 @@ interface ReviewTabProps extends TabProps {
 }
 
 export function ReviewTab({
+  editor,
   hasDoc,
   dropdown,
   setDropdown,
   onAiPreset,
+  onRunLanguageTool,
   commentCount,
   onShowComments,
   canComment,
@@ -523,6 +527,51 @@ export function ReviewTab({
   onCompare,
 }: ReviewTabProps) {
   const { t } = useI18n()
+  const [reviewLang, setReviewLang] = useState<string>('auto')
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  const REVIEW_LANGUAGES = [
+    { code: 'auto', label: 'Auto-detect Language' },
+    { code: 'en-US', label: 'English' },
+    { code: 'es', label: 'Spanish (Español)' },
+    { code: 'fr', label: 'French (Français)' },
+    { code: 'de', label: 'German (Deutsch)' },
+    { code: 'pt', label: 'Portuguese (Português)' },
+    { code: 'it', label: 'Italian (Italiano)' },
+  ]
+
+  const handleReviewWithLang = async (lang: string) => {
+    if (!editor || !hasDoc || isReviewing) return
+    setIsReviewing(true)
+    try {
+      let selectionFrom = 0
+      let selectionText = ''
+      try {
+        const { from, to } = editor.state?.selection || { from: 0, to: 0 }
+        if (from !== to) {
+          selectionFrom = from
+          selectionText = editor.state.doc.textBetween(from, to, ' ').trim()
+        }
+      } catch {
+        selectionText = ''
+      }
+
+      const isSelection = selectionText.length > 0
+      const targetText = isSelection ? selectionText : editor.getText().trim()
+      if (!targetText) return
+
+      const res = await window.desktop.checkLanguageTool(targetText, lang)
+      if (res && res.ok && Array.isArray(res.matches)) {
+        const baseOffset = isSelection ? Math.max(0, selectionFrom - 1) : 0
+        onRunLanguageTool?.(res.matches, res.language?.name, baseOffset)
+      }
+    } catch (err) {
+      console.error('LanguageTool Review failed:', err)
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
   // One-time acknowledgement before whole-document AI rewrites:
   // Editor / Translate send the full document to the agent, consume credits and
   // may rewrite everything — say so once before the first run.
@@ -534,9 +583,52 @@ export function ReviewTab({
   }
   return (
     <>
-      {/* Word: Proofing (Editor) sits leftmost */}
+      {/* Proofing group: Review (Grammar/Spelling) + Ai Rewrite */}
       <div className="ribbon-group">
         <div className="ribbon-group-items">
+          <div className="rb-split-wrap">
+            <button
+              className="rb-big"
+              disabled={!hasDoc || isReviewing}
+              title={`Review (${reviewLang.toUpperCase()}) — Grammar & Spelling Check`}
+              onClick={() => void handleReviewWithLang(reviewLang)}
+            >
+              <span className="rb-big-icon">
+                <IconAccept size={BIG} />
+              </span>
+              <span>{isReviewing ? 'Reviewing...' : `Review (${reviewLang.toUpperCase()})`}</span>
+            </button>
+            <button
+              className="rb-big"
+              disabled={!hasDoc}
+              title="Select Review Language"
+              onClick={() => toggleDropdown(setDropdown, 'reviewLang')}
+              style={{ minWidth: 'auto', padding: '0 4px' }}
+            >
+              <span className="rb-big-icon">
+                <IconCaret />
+              </span>
+            </button>
+            {dropdown === 'reviewLang' && (
+              <div className="layout-menu" style={{ zIndex: 9999 }}>
+                {REVIEW_LANGUAGES.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    className={reviewLang === l.code ? 'active' : ''}
+                    onClick={() => {
+                      setReviewLang(l.code)
+                      setDropdown(() => null)
+                      void handleReviewWithLang(l.code)
+                    }}
+                  >
+                    {reviewLang === l.code ? '✓ ' : ''}{l.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             className="rb-big"
             disabled={!hasDoc}
@@ -550,7 +642,7 @@ export function ReviewTab({
                 <IconSparkle size={13} />
               </span>
             </span>
-            <span>{t('ribbonEditorBtn')}</span>
+            <span>Ai Rewrite</span>
           </button>
         </div>
         <div className="ribbon-group-label">{t('ribbonGroupProofing')}</div>
@@ -573,10 +665,10 @@ export function ReviewTab({
                 </span>
                 <IconCaret />
               </span>
-              <span>{t('ribbonTranslate')}</span>
+              <span>Ai Translate</span>
             </button>
             {dropdown === 'translate' && (
-              <div className="layout-menu">
+              <div className="layout-menu" style={{ zIndex: 9999 }}>
                 {TRANSLATE_TARGETS.map((lang) => (
                   <button
                     key={lang.labelKey}

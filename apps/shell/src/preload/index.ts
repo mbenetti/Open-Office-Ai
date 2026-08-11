@@ -117,6 +117,9 @@ const homeApi: HomeApi = {
   async setAiSettings(settings) {
     await ipcRenderer.invoke('ai:set-settings', settings)
   },
+  async correctGrammar(text, language) {
+    return await ipcRenderer.invoke('ai:correct-grammar', { text, language })
+  },
   async getAppVersion() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAppVersion)
     return typeof result === 'string' ? result : ''

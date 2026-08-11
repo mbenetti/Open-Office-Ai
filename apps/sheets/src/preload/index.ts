@@ -217,6 +217,9 @@ const desktopApi: DesktopApi = {
   async setAiSettings(settings) {
     await ipcRenderer.invoke(IPC_CHANNELS.aiSetSettings, settings)
   },
+  async correctGrammar(text: string, language?: string) {
+    return await ipcRenderer.invoke('ai:correct-grammar', { text, language })
+  },
   async aiChat(request) {
     const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.aiChat, request)
     if (!isRecord(result) || typeof result.ok !== 'boolean') {

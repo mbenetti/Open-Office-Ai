@@ -1313,6 +1313,10 @@ export interface SlidesApi {
   onRenamed: (handler: (newPath: string) => void) => () => void
   getAiSettings: () => Promise<AiSettings>
   setAiSettings: (settings: AiSettings) => Promise<void>
+  correctGrammar: (
+    text: string,
+    language?: string,
+  ) => Promise<{ ok: boolean; correctedText?: string; language?: string; engineUsed?: string; error?: string }>
   aiStream: (request: AiStreamRequest) => Promise<void>
   aiStreamCancel: (requestId: string) => Promise<void>
   webSearch: (

@@ -34,6 +34,7 @@ interface EditorContextMenuProps {
   onContinueNumbering?: () => void
   /** F9 update fields (shown when the cursor is on an inline field) */
   onUpdateFields?: () => void
+  onRunLanguageTool?: (matches: any[], languageName?: string, baseOffset?: number) => void
 }
 
 /** target languages mirrored from the Review → Translate dropdown; the localized label also goes into the LLM prompt */
@@ -61,6 +62,7 @@ export function EditorContextMenu({
   onRestartNumbering,
   onContinueNumbering,
   onUpdateFields,
+  onRunLanguageTool,
 }: EditorContextMenuProps) {
   const { t } = useI18n()
   const ref = useRef<HTMLDivElement>(null)
@@ -255,13 +257,31 @@ export function EditorContextMenu({
         </>
       )}
       <div className="ctx-sep" />
+      {hasSelection && (
+        <>
+          {item('Review Selection', {
+            ai: false,
+            onClick: run(async () => {
+              try {
+                const res = await window.desktop.checkLanguageTool(selectedText, 'auto')
+                if (res && res.ok && Array.isArray(res.matches)) {
+                  onRunLanguageTool?.(res.matches, res.language?.name, from - 1)
+                }
+              } catch (err) {
+                console.error('LanguageTool selection check failed:', err)
+              }
+            }),
+          })}
+          <div className="ctx-sep" />
+        </>
+      )}
       {item(t('appSynonyms'), {
         disabled: !synonymText,
         ai: true,
         onClick: run(() => onAiPreset(t('appSynonymsPrompt', { text: synonymText }))),
       })}
       <div className="ctx-item-wrap" onMouseLeave={() => setSubmenu(null)}>
-        {item(t('appTranslate'), { disabled: !hasSelection, submenuKey: 'translate', ai: true })}
+        {item('Ai Translate', { disabled: !hasSelection, submenuKey: 'translate', ai: true })}
         {submenu === 'translate' && hasSelection && (
           <div className="ctx-submenu">
             {TRANSLATE_TARGETS.map((target) => (

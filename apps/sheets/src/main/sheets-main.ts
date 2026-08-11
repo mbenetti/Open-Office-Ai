@@ -47,12 +47,14 @@ import {
   AiCreditsError,
   AiTimeoutError,
   chatForProvider,
+  correctGrammar,
   defaultAiSettings,
   resolveAiSettings,
   streamForProvider,
   type AiProviderId,
   type AiSettings,
   type AiStreamChunk,
+  type GrammarLanguage,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import { csvToXlsxBuffer, decodeCsvBuffer } from '../gateway/csv-import'
@@ -2038,6 +2040,19 @@ export function registerSheetsAiIpc(): void {
     const settings = aiSettingsInputSchema.parse(input)
     writeJson(SETTINGS_PATH(), settings)
   })
+
+  ipcMain.handle(
+    'ai:correct-grammar',
+    async (_event, request: { text: string; language?: GrammarLanguage }) => {
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+      const settings = resolveAiSettings(diskStored, defaultAiSettings())
+      return await correctGrammar({
+        text: request.text,
+        language: request.language,
+        settings,
+      })
+    },
+  )
 
   ipcMain.handle(IPC_CHANNELS.aiChat, async (event, input: unknown) => {
     sessionFor(event)

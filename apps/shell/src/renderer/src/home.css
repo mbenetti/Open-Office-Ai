@@ -1900,30 +1900,39 @@ body.vib .home {
 
 /* ── Settings Modal System Styles ── */
 .settings-modal {
-  max-width: 560px;
+  max-width: 720px;
   width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .settings-tab-bar {
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 6px;
+  margin-bottom: 16px;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
+  padding-bottom: 10px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .settings-tab-btn {
-  padding: 7px 14px;
+  padding: 6px 12px;
   border-radius: var(--radius-8);
   border: 1px solid transparent;
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
@@ -1943,6 +1952,9 @@ body.vib .home {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  max-height: 60vh;
+  padding-right: 6px;
 }
 
 .settings-field {

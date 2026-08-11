@@ -26,6 +26,8 @@ import {
   type AiProviderId,
   type AiSettings,
   type EmbeddingProviderId,
+  type GrammarLanguage,
+  type GrammarEngineMode,
   type McpServerConfig,
 } from '@genoffice/ai-provider'
 
@@ -519,6 +521,10 @@ function parseHtmlTableToReact(htmlBlock: string, key: number): React.ReactNode 
                       fontWeight: 600,
                       textAlign: 'left',
                       color: 'var(--text, #111)',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.45',
                     }}
                     dangerouslySetInnerHTML={{ __html: c }}
                   />
@@ -531,7 +537,10 @@ function parseHtmlTableToReact(htmlBlock: string, key: number): React.ReactNode 
               <tr
                 key={rIdx}
                 style={{
-                  background: rIdx % 2 === 1 ? 'var(--surface-1, #f8f9fa)' : 'transparent',
+                  // --surface-1 is not part of the app palette (dark theme);
+                  // --surface-subtle is the slate-800 raised-surface color so
+                  // alternating rows stay visible with light text.
+                  background: rIdx % 2 === 1 ? 'var(--surface-subtle, #1e293b)' : 'transparent',
                 }}
               >
                 {row.cells.map((cell, cIdx) => (
@@ -539,8 +548,13 @@ function parseHtmlTableToReact(htmlBlock: string, key: number): React.ReactNode 
                     key={cIdx}
                     style={{
                       border: '1px solid var(--border-color, #e0e0e0)',
-                      padding: '6px 12px',
+                      padding: '8px 12px',
                       color: 'var(--text, #222)',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.45',
+                      verticalAlign: 'top',
                     }}
                     dangerouslySetInnerHTML={{ __html: cell }}
                   />
@@ -609,6 +623,10 @@ function parseMarkdownTableToReact(tableLines: string[], key: number): React.Rea
                     fontWeight: 600,
                     textAlign: 'left',
                     color: 'var(--text, #111)',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    lineHeight: '1.45',
                   }}
                 >
                   {renderMarkdownInline(c)}
@@ -622,7 +640,10 @@ function parseMarkdownTableToReact(tableLines: string[], key: number): React.Rea
             <tr
               key={rIdx}
               style={{
-                background: rIdx % 2 === 1 ? 'var(--surface-1, #f8f9fa)' : 'transparent',
+                // --surface-1 is not part of the app palette (dark theme);
+                // --surface-subtle is the slate-800 raised-surface color so
+                // alternating rows stay visible with light text.
+                background: rIdx % 2 === 1 ? 'var(--surface-subtle, #1e293b)' : 'transparent',
               }}
             >
               {row.map((cell, cIdx) => (
@@ -630,8 +651,13 @@ function parseMarkdownTableToReact(tableLines: string[], key: number): React.Rea
                   key={cIdx}
                   style={{
                     border: '1px solid var(--border-color, #e0e0e0)',
-                    padding: '6px 12px',
+                    padding: '8px 12px',
                     color: 'var(--text, #222)',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    lineHeight: '1.45',
+                    verticalAlign: 'top',
                   }}
                 >
                   {renderMarkdownInline(cell)}
@@ -1250,7 +1276,7 @@ const LANG_OPTIONS = [
 
 function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { lang, setLang } = useI18n()
-  const [tab, setTab] = useState<'llm' | 'search' | 'embedding' | 'mcp' | 'general'>('llm')
+  const [tab, setTab] = useState<'llm' | 'search' | 'grammar' | 'embedding' | 'mcp' | 'general'>('llm')
   const [settings, setSettings] = useState<AiSettings>(defaultAiSettings())
   /** welcome-page theme (dark/light); document editors stay light */
   const [theme, setTheme] = useState<'dark' | 'light'>(() =>
@@ -1336,6 +1362,12 @@ function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
             onClick={() => setTab('search')}
           >
             Web Search
+          </button>
+          <button
+            className={`settings-tab-btn${tab === 'grammar' ? ' active' : ''}`}
+            onClick={() => setTab('grammar')}
+          >
+            Proofing (LanguageTool)
           </button>
           <button
             className={`settings-tab-btn${tab === 'embedding' ? ' active' : ''}`}
@@ -1484,11 +1516,11 @@ function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
               </label>
 
               <label className="settings-field" style={{ marginTop: 12 }}>
-                <span className="settings-field-label">Serper API Key</span>
+                <span className="settings-field-label">Serper (Google) API Key</span>
                 <input
                   type="password"
                   className="settings-input"
-                  placeholder="Serper API Key (Google Search)"
+                  placeholder="API Key..."
                   value={settings.search?.serperApiKey ?? ''}
                   onChange={(e) =>
                     setSettings({
@@ -1498,9 +1530,97 @@ function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                   }
                 />
                 <span style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
-                  Google Search API via Serper (serper.dev). Serper requires an API key; without a key,
-                  search automatically falls back to DuckDuckGo.
+                  Serper Google Search API key (serper.dev). Used if Tavily key is unset or fails.
                 </span>
+              </label>
+            </div>
+          )}
+
+          {tab === 'grammar' && (
+            <div className="settings-form-group">
+              <label className="settings-field">
+                <span className="settings-field-label">LanguageTool Server URL (Public API or Local Deployment)</span>
+                <input
+                  type="text"
+                  className="settings-input"
+                  placeholder="https://api.languagetool.org/v2 or http://localhost:8081/v2"
+                  value={settings.languageTool?.serverUrl ?? ''}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      languageTool: {
+                        ...(settings.languageTool ?? { enabled: true, serverUrl: 'https://api.languagetool.org/v2', defaultLanguage: 'auto' }),
+                        serverUrl: e.target.value,
+                      },
+                    })
+                  }
+                />
+                <span style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                  Default is free public API: <code>https://api.languagetool.org/v2</code>. You can also point to a local Docker / Java deployment (e.g. <code>http://localhost:8081/v2</code>).
+                </span>
+              </label>
+
+              <label className="settings-field">
+                <span className="settings-field-label">Default Review Language</span>
+                <select
+                  className="settings-select"
+                  value={settings.languageTool?.defaultLanguage ?? 'auto'}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      languageTool: {
+                        ...(settings.languageTool ?? { enabled: true, serverUrl: 'https://api.languagetool.org/v2', defaultLanguage: 'auto' }),
+                        defaultLanguage: e.target.value,
+                      },
+                    })
+                  }
+                >
+                  <option value="auto">Auto-detect (Auto)</option>
+                  <option value="en-US">English (US)</option>
+                  <option value="es">Spanish / Español</option>
+                  <option value="fr">French / Français</option>
+                  <option value="de">German / Deutsch</option>
+                  <option value="pt">Portuguese / Português</option>
+                  <option value="it">Italian / Italiano</option>
+                </select>
+              </label>
+
+              <label className="settings-field">
+                <span className="settings-field-label">API Key (Optional / Premium)</span>
+                <input
+                  type="password"
+                  className="settings-input"
+                  placeholder="API Key (leave blank for free / local usage)"
+                  value={settings.languageTool?.apiKey ?? ''}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      languageTool: {
+                        ...(settings.languageTool ?? { enabled: true, serverUrl: 'https://api.languagetool.org/v2', defaultLanguage: 'auto' }),
+                        apiKey: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </label>
+
+              <label className="settings-field">
+                <span className="settings-field-label">Username / Email (Optional / Premium)</span>
+                <input
+                  type="text"
+                  className="settings-input"
+                  placeholder="Username or email (optional)"
+                  value={settings.languageTool?.username ?? ''}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      languageTool: {
+                        ...(settings.languageTool ?? { enabled: true, serverUrl: 'https://api.languagetool.org/v2', defaultLanguage: 'auto' }),
+                        username: e.target.value,
+                      },
+                    })
+                  }
+                />
               </label>
             </div>
           )}
@@ -3352,7 +3472,7 @@ export function Home() {
                   <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Search Mode:</span>
                   <select
                     value={workbenchMode}
-                    style={{ padding: '4px 8px', fontSize: 13, borderRadius: 4, border: '1px solid var(--border-strong)', background: 'var(--surface-1)' }}
+                    style={{ padding: '4px 8px', fontSize: 13, borderRadius: 4, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}
                     onChange={(e) => setWorkbenchMode(e.target.value as 'hybrid' | 'vector' | 'fts')}
                   >
                     <option value="hybrid">Hybrid (Vector + FTS via RRF)</option>
@@ -3365,7 +3485,7 @@ export function Home() {
                   <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Target Scope:</span>
                   <select
                     value={workbenchScope}
-                    style={{ padding: '4px 8px', fontSize: 13, borderRadius: 4, border: '1px solid var(--border-strong)', background: 'var(--surface-1)' }}
+                    style={{ padding: '4px 8px', fontSize: 13, borderRadius: 4, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}
                     onChange={(e) => setWorkbenchScope(e.target.value as 'chunks' | 'documents')}
                   >
                     <option value="chunks">Chunks / Passages</option>
@@ -3618,9 +3738,8 @@ export function Home() {
                     border: '1px solid var(--border-color, #e9ecef)',
                     borderRadius: 8,
                     padding: 16,
-                    // keep every PDF/markdown line on one visual line; long
-                    // lines scroll horizontally instead of wrapping mid-sentence
-                    whiteSpace: 'pre',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
                   }}
                 >
                   <MarkdownPreview content={fullText} headingIds={headingIds} />
@@ -3644,7 +3763,7 @@ export function Home() {
                       </span>
                       <span>{chunk.charCount} characters</span>
                     </div>
-                    <div style={{ background: 'var(--surface-2)', padding: 12, borderRadius: 6, border: '1px solid var(--border)', whiteSpace: 'pre', overflowX: 'auto' }}>
+                    <div style={{ background: 'var(--surface-2)', padding: 12, borderRadius: 6, border: '1px solid var(--border)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowX: 'auto' }}>
                       <MarkdownPreview content={chunk.text} />
                     </div>
                   </div>

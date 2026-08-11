@@ -99,6 +99,18 @@ export function defaultAiSettings(
       model: 'text-embedding-3-small',
       apiKey: '',
     },
+    grammar: {
+      enabled: true,
+      language: 'en',
+      engine: 'auto',
+    },
+    languageTool: {
+      enabled: true,
+      serverUrl: 'https://api.languagetool.org/v2',
+      apiKey: '',
+      username: '',
+      defaultLanguage: 'auto',
+    },
   }
 }
 
@@ -127,5 +139,17 @@ export function resolveAiSettings(
     providers: { ...defaults.providers, ...stored.providers },
     mcpServers: stored.mcpServers ?? defaults.mcpServers ?? [],
     embedding: stored.embedding ?? defaults.embedding,
+    grammar: stored.grammar ?? defaults.grammar ?? {
+      enabled: true,
+      language: 'en',
+      engine: 'auto',
+    },
+    languageTool: stored.languageTool ?? defaults.languageTool ?? {
+      enabled: true,
+      serverUrl: 'https://api.languagetool.org/v2',
+      apiKey: '',
+      username: '',
+      defaultLanguage: 'auto',
+    },
   }
 }

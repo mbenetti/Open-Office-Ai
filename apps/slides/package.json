@@ -1,6 +1,6 @@
 {
   "name": "@genoffice/slides",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "productName": "Open Office Ai Slides",
   "description": "AI-native pptx editor: byte-fidelity open + high-fidelity Konva render + element-patch save",
   "main": "out/main/index.js",

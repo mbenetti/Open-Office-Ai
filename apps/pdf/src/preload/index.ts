@@ -37,6 +37,8 @@ const api: PdfApi = {
     return () => ipcRenderer.removeListener(PDF_CHANNELS.languageChanged, listener)
   },
   getAiSettings: () => ipcRenderer.invoke(AI_CHANNELS.getSettings),
+  correctGrammar: (text: string, language?: string) =>
+    ipcRenderer.invoke('ai:correct-grammar', { text, language }),
   aiStream: (request) => ipcRenderer.invoke(AI_CHANNELS.stream, request),
   aiStreamCancel: (requestId) => ipcRenderer.invoke(AI_CHANNELS.streamCancel, requestId),
   onAiStream: (handler) => {

@@ -190,7 +190,8 @@ function splitOversizedCodeBlock(
 /**
  * Hierarchical markdown chunking strategy:
  * - Starts from top header `#`, `##`, `###`, etc.
- * - Keeps entire sections up to `maxChunkSize` (default 2000 chars).
+ * - Merges adjacent sections into chunks up to `maxChunkSize` (default 4000 chars)
+ *   so small sections don't produce tiny chunks.
  * - Merges empty titles (titles without body text) with lower-level titles until text is present under the title.
  * - Never breaks mid code-block, math formula ($$), table, list item, or blockquote unless an individual unit exceeds maxChunkSize.
  * - Concatenating all chunks' text creates a complete, duplicate-free copy of the original document.
@@ -297,6 +298,18 @@ export function chunkMarkdownDocument(
     })
   }
 
+  // Assemble chunks: merge adjacent sections into a single chunk up to
+  // maxChunkSize (so small sections don't produce tiny chunks). Oversized
+  // sections are still split on protected atomic units.
+  let curText = ''
+  let curPath = '(Document)'
+  const flushAccumulated = () => {
+    if (curText) {
+      pushChunk(curText, curPath)
+      curText = ''
+    }
+  }
+
   for (const block of blocks) {
     const path = formatPath(block.headers)
 
@@ -317,20 +330,31 @@ export function chunkMarkdownDocument(
     }
 
     if (fullBlockText.length <= maxChunkSize) {
-      pushChunk(fullBlockText, path)
+      // Merge this section into the chunk currently being assembled.
+      const candidate = curText ? `${curText}\n\n${fullBlockText}` : fullBlockText
+      if (candidate.length <= maxChunkSize) {
+        if (!curText) curPath = path
+        curText = candidate
+      } else {
+        flushAccumulated()
+        curPath = path
+        curText = fullBlockText
+      }
     } else {
-      // Parse section body into protected atomic units
+      // Oversized section: flush what was accumulated, then split it on
+      // protected atomic units (code, math, tables, lists, paragraphs).
+      flushAccumulated()
       const units = parseAtomicUnits(fullBlockText)
-      let curText = ''
+      let unitText = ''
 
       for (const unit of units) {
-        const candidate = curText ? `${curText}\n\n${unit}` : unit
+        const candidate = unitText ? `${unitText}\n\n${unit}` : unit
         if (candidate.length <= maxChunkSize) {
-          curText = candidate
+          unitText = candidate
         } else {
-          if (curText) {
-            pushChunk(curText, path)
-            curText = ''
+          if (unitText) {
+            pushChunk(unitText, path)
+            unitText = ''
           }
 
           if (unit.length > maxChunkSize) {
@@ -359,15 +383,18 @@ export function chunkMarkdownDocument(
               if (subText) pushChunk(subText, path)
             }
           } else {
-            curText = unit
+            unitText = unit
           }
         }
       }
-      if (curText) {
-        pushChunk(curText, path)
+      if (unitText) {
+        pushChunk(unitText, path)
       }
+      // Next section starts a fresh accumulated chunk.
+      curText = ''
     }
   }
+  flushAccumulated()
 
   return chunks
 }

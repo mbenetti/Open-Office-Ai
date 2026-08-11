@@ -62,12 +62,31 @@ export interface AiSearchSettings {
   serperApiKey?: string | undefined
 }
 
+export interface LanguageToolSettings {
+  enabled?: boolean | undefined
+  serverUrl?: string | undefined
+  apiKey?: string | undefined
+  username?: string | undefined
+  defaultLanguage?: string | undefined
+}
+
+export type GrammarLanguage = 'en' | 'es' | 'auto'
+export type GrammarEngineMode = 'transformer' | 'llm' | 'auto'
+
+export interface GrammarSettings {
+  enabled: boolean
+  language: GrammarLanguage
+  engine: GrammarEngineMode
+}
+
 export interface AiSettings {
   provider: AiProviderId
   providers: Record<AiProviderId, AiProviderConfig>
   mcpServers?: McpServerConfig[] | undefined
   embedding?: EmbeddingProviderConfig | undefined
   search?: AiSearchSettings | undefined
+  grammar?: GrammarSettings | undefined
+  languageTool?: LanguageToolSettings | undefined
 }
 
 /** pre-provider settings shape (single OpenAI-compatible endpoint); migrated into "custom" */

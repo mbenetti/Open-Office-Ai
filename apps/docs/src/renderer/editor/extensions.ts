@@ -81,10 +81,12 @@ import {
   PPrChangeExtension,
   PendingCommentHighlightExtension,
   ResolvedCommentsExtension,
-  SdtExtension,
   SearchHighlightExtension,
+  SdtExtension,
   TabStopExtension,
   UnfocusedSelectionExtension,
+  ProofingHighlightExtension,
+  proofingPluginKey,
 } from './decoration-extensions'
 import { AutoDirectionExtension } from './direction'
 export * from './marks'
@@ -2259,5 +2261,6 @@ export const editorExtensions = [
   PPrChangeExtension,
   RevisionOriginalExtension,
   UnfocusedSelectionExtension,
+  ProofingHighlightExtension,
   AutoDirectionExtension,
 ]

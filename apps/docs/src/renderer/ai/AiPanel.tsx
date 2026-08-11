@@ -163,6 +163,7 @@ export function AiPanel({
   /** Wall-clock start of the current run, drives the elapsed badge */
   const runStartedAtRef = useRef(0)
   const [chat, setChat] = useState<ChatEntry[]>([])
+  const [isGrammarChecking, setIsGrammarChecking] = useState(false)
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [trackChanges, setTrackChanges] = useState(
     () => localStorage.getItem(TRACK_CHANGES_KEY) === '1',

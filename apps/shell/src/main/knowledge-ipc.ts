@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { KnowledgeStore } from './knowledge-store'
 import { SkillStore, type SkillPatch } from './skills-store'
-import { defaultAiSettings, resolveAiSettings, type AiSettings, type LegacyAiSettings } from '@genoffice/ai-provider'
+import { checkLanguageTool, defaultAiSettings, resolveAiSettings, type AiSettings, type LegacyAiSettings } from '@genoffice/ai-provider'
 
 export function getSharedGenOfficeDir(): string {
   const home = homedir()
@@ -43,6 +43,25 @@ let registered = false
 export function registerKnowledgeIpc(): void {
   if (registered) return
   registered = true
+
+  ipcMain.removeHandler('ai:languagetool-check')
+  ipcMain.handle(
+    'ai:languagetool-check',
+    async (_event, request: { text: string; language?: string }) => {
+      try {
+        const dir = getSharedGenOfficeDir()
+        const settingsPath = join(dir, 'ai-settings.json')
+        let settings = defaultAiSettings()
+        if (existsSync(settingsPath)) {
+          const stored = JSON.parse(readFileSync(settingsPath, 'utf8')) as Partial<AiSettings> & LegacyAiSettings
+          settings = resolveAiSettings(stored, defaultAiSettings())
+        }
+        return await checkLanguageTool(request.text, request.language, settings.languageTool)
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
 
   const store = getKnowledgeStore()
 

@@ -26,6 +26,9 @@ electron-builder.env
 /*.zip
 /windows/
 
+# Local sample/support PDFs used for manual parser testing
+/0003.pdf
+
 .cursor/rules/git-remote.mdc
 __pycache__/
 /notes/

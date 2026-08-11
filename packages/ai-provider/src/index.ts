@@ -10,6 +10,10 @@ export type {
   EmbeddingProviderConfig,
   EmbeddingProviderId,
   McpServerConfig,
+  GrammarSettings,
+  GrammarLanguage,
+  GrammarEngineMode,
+  LanguageToolSettings,
   LegacyAiSettings,
 } from './types'
 export { EMBEDDING_PROVIDERS } from './types'
@@ -19,6 +23,12 @@ export {
   resolveAiSettings,
 } from './providers'
 export { generateEmbedding, cosineSimilarity } from './embedding'
+export { correctGrammar, type GrammarCorrectionRequest, type GrammarCorrectionResponse } from './grammar'
+export {
+  checkLanguageTool,
+  type LanguageToolMatch,
+  type LanguageToolCheckResponse,
+} from './languagetool'
 export { chatForProvider } from './chat'
 export { AiCreditsError, sseLines, streamForProvider } from './stream'
 export type { StreamCallbacks } from './stream'

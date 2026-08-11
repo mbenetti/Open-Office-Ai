@@ -6,7 +6,19 @@ export default defineConfig({
   // Bundle everything into the shell main (same policy as apps/docs): the
   // imported docs/sheets main modules are TS source with no build artifacts,
   // so externalizing them would break Node ESM resolution at runtime.
-  main: {},
+  // Exception: @firecrawl/pdf-inspector is a napi-rs native module. Bundling it
+  // makes rollup eagerly require EVERY platform's .node binary at module load
+  // (they're statically resolvable assets), so only the build host's binary can
+  // load and the others throw dlopen errors on any other platform. Externalize
+  // it so the loader resolves the correct platform binding from node_modules at
+  // runtime (packaged node_modules ships alongside, see electron-builder.cjs).
+  main: {
+    build: {
+      rollupOptions: {
+        external: ['@firecrawl/pdf-inspector'],
+      },
+    },
+  },
   preload: {
     build: {
       rollupOptions: {

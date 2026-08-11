@@ -22,6 +22,8 @@ import type {
   AiSettings,
   AiStreamChunk,
   AiStreamRequest,
+  GrammarLanguage,
+  LanguageToolCheckResponse,
 } from '@genoffice/ai-provider'
 
 export type {
@@ -181,6 +183,10 @@ export interface DesktopApi {
   pickImage(): Promise<PickImageResult | null>
   getAiSettings(): Promise<AiSettings>
   setAiSettings(settings: AiSettings): Promise<void>
+  checkLanguageTool(
+    text: string,
+    language?: string,
+  ): Promise<LanguageToolCheckResponse>
   /** system print dialog for the current window */
   print(): Promise<void>
   /** render the document to PDF and ask where to save; size in twips.

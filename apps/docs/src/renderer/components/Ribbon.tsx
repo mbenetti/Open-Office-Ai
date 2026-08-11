@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
+import type { LanguageToolMatch } from '@genoffice/ai-provider'
 import type { ChainedCommands, Editor } from '@tiptap/core'
 import type { Command } from '@tiptap/pm/state'
 import {
@@ -197,6 +198,7 @@ interface RibbonProps {
   isProtected: boolean
   onToggleProtection: () => void
   onCompare: () => void
+  onRunLanguageTool?: (matches: LanguageToolMatch[], languageName?: string, baseOffset?: number) => void
   /** current document path (View → New Window opens it in another window) */
   filePath: string | null
   viewMode: ViewMode
@@ -561,6 +563,7 @@ function RibbonInner({
   isProtected,
   onToggleProtection,
   onCompare,
+  onRunLanguageTool,
   filePath,
   viewMode,
   onViewMode,
@@ -2522,6 +2525,7 @@ function RibbonInner({
             dropdown={dropdown}
             setDropdown={setDropdown}
             onAiPreset={onAiPreset}
+            onRunLanguageTool={onRunLanguageTool}
             commentCount={commentCount}
             onShowComments={onShowComments}
             canComment={canComment}

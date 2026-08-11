@@ -10,12 +10,14 @@ import { join } from 'node:path'
 import {
   AiCreditsError,
   AiTimeoutError,
+  correctGrammar,
   defaultAiSettings,
   resolveAiSettings,
   streamForProvider,
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
+  type GrammarLanguage,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import { fetchWithSsrfGuard } from '@genoffice/electron-utils'
@@ -63,6 +65,19 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
     writeJson(AI_SETTINGS_PATH(), settings)
   })
+
+  ipcMain.handle(
+    'ai:correct-grammar',
+    async (_event, request: { text: string; language?: GrammarLanguage }) => {
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
+      const settings = resolveAiSettings(diskStored, defaultAiSettings())
+      return await correctGrammar({
+        text: request.text,
+        language: request.language,
+        settings,
+      })
+    },
+  )
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
     const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})

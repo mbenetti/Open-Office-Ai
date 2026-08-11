@@ -40,7 +40,10 @@ describe('isInvalidPageHeaderTitle', () => {
     const text = `# Page 1\n\nSome body text on page 1.\n\n# Main Overview\n\nOverview content.`
     const chunks = chunkMarkdownDocument(text)
 
+    // "Page 1" is not a section header, so it must not become a chunk path or
+    // a chunk boundary — it stays plain body text.
     expect(chunks.some((c) => c.headerPath.includes('Page 1'))).toBe(false)
-    expect(chunks.some((c) => c.headerPath.includes('Main Overview'))).toBe(true)
+    // The valid header still lands inside the (merged) chunk content.
+    expect(chunks.some((c) => c.text.includes('Main Overview'))).toBe(true)
   })
 })

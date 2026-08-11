@@ -9,9 +9,9 @@ Open Office Ai is an independent fork of **GenOffice** under the Apache License 
 
 ## Downloads
 
-* 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.1/Open.Office.Ai.Setup.1.0.1.exe)
-* 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.1/Open.Office.Ai-1.0.1-arm64.AppImage)
-* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.1/Open.Office.Ai-1.0.1-arm64.deb)
+* 🪟 **Windows (x64):** [Download Installer](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.3/Open.Office.Ai.Setup.1.0.3.exe)
+* 🐧 **Linux (AppImage):** [Download AppImage](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.3/Open.Office.Ai-1.0.3-arm64.AppImage)
+* 🐧 **Linux (Debian/Ubuntu):** [Download DEB](https://github.com/mbenetti/Open-Office-Ai/releases/download/v1.0.3/Open.Office.Ai-1.0.3-arm64.deb)
 * 🍏 ~~**macOS**~~ \* — not distributed as a prebuilt binary due to Apple's app signing & notarization requirements (a signed, notarized build requires a paid Apple Developer account).
 
 ### Building for your own use (macOS)
@@ -49,6 +49,9 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ### 2. Knowledge Base & Collection Management
 * **Collection Workspace**: Create, rename, delete, and organize knowledge bases (collections) directly from the unified Upload Document tab.
+* **High-Fidelity PDF Table Parsing (`@firecrawl/pdf-inspector`)**: Integrates high-performance Rust-backed PDF extraction that automatically detects structured data and converts PDF tables directly into Markdown pipe tables (`| Activity | Time | Cost |`), preserving tabular layouts for Knowledge Base retrieval and LLM context without losing structure.
+* **Intelligent Section-Merging Chunker (up to 4,000 Chars)**: Markdown documents and parsed PDFs are chunked hierarchically up to 4,000 characters. Small adjacent sections are automatically merged into cohesive passages instead of creating micro-chunks, while protected atomic structures (tables, code fences, math equations, and lists) remain strictly unbroken.
+* **Responsive & Theme-Aware Table Previews**: Table previews in both the Knowledge Base document viewer and individual chunk inspector render with responsive multi-line cell text wrapping (`whiteSpace: 'pre-wrap'`) and dark-mode slate theme styling (`var(--surface-subtle)`), ensuring clean, readable table layouts across dark and light editor themes.
 * **SQLite & Permanent Disk Storage Architecture**:
   * **Inside SQLite (`knowledge-store.sqlite`)**: Manages collections, document metadata, Table of Contents (TOC) JSON structures, chunks, vector embeddings, and dual FTS5 virtual tables (`chunks_fts` and `documents_fts`).
   * **Outside SQLite (On Disk `md-documents/`)**: Full extracted document text is saved as permanent `.md` files (`doc-XXXXXXXX.md`).
@@ -89,7 +92,16 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 * **Skills Library**: Create, modify, and delete reusable AI skills in a dedicated tab.
 * **Slash Autocomplete**: Recall skills on demand in the chatbot using the `/` command. Autocomplete lists available skills as you type (e.g., typing `/C` filters down to `/Contract_Analyzer`), preventing typing mistakes.
 
-### 5. LLM, Search & Embedding Configuration
+### 5. LanguageTool Proofing & Review (Word Processor)
+* **LanguageTool Integration**: Integrated the industry-standard LanguageTool API for precise grammar, spelling, and style checking. Works 100% free out-of-the-box without requiring an API key, supporting 30+ languages.
+* **Interactive Document Underlines**: Potential errors are underlined directly inside the Word document (red dotted lines). Selecting or hovering over an error card highlights the exact word with a wavy red underline and yellow background tint.
+* **Surgical Formatting Preservation**: Applying a correction replaces only the specific bad word or phrase, leaving all surrounding bolding, italicizing, fonts, spacing, and paragraph styles completely untouched.
+* **Real-time Underline Sync**: Underlines disappear immediately from the document when an error is corrected or ignored, and all underlines are cleared instantly when the Proofing panel is closed.
+* **Dedicated Review Ribbon Tab**: Added a new **Review** split button with a dropdown language selector (Auto-detect, English, Spanish, French, German, Portuguese, Italian), and renamed the other buttons to **Ai Rewrite** (formerly Editor) and **Ai Translate** (formerly Translate) for clarity.
+* **Contextual Selection Pop-up**: Added **Review Selection** to the right-click/selection pop-up menu for instant proofing of any selected text.
+* **Custom Local Server Support**: Settings panel allows pointing to a local Docker or Java LanguageTool deployment (e.g., `http://localhost:8081/v2`) for fully offline, private proofing.
+
+### 6. LLM, Search & Embedding Configuration
 * **Custom Endpoints**: Configure custom OpenAI-compatible endpoints, local Ollama instances, and API keys for both LLM reasoning and embedding models.
 * **Cascading Web Search**: Configurable search engine cascade: **Tavily API** (first, if key provided) → **Serper API** (Google Search) → **DuckDuckGo** (default fallback, no API keys required), managed via the dedicated Web Search settings tab.
 * **Ollama & vLLM Integration**: First-class, dedicated providers for local Ollama and vLLM endpoints with dynamic placeholders, automatic default base URLs, and key-free execution support across all editors (Docs, Sheets, Slides, PDF).

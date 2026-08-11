@@ -1903,6 +1903,10 @@ export interface DesktopApi {
   consumeNewBlankWorkbook(): Promise<boolean>
   getAiSettings(): Promise<AiSettings>
   setAiSettings(settings: AiSettings): Promise<void>
+  correctGrammar(
+    text: string,
+    language?: string,
+  ): Promise<{ ok: boolean; correctedText?: string; language?: string; engineUsed?: string; error?: string }>
   aiChat(request: AiChatRequest): Promise<AiChatResponse>
   /// start a streaming AI call; deltas arrive via onAiStream with the same requestId
   aiStream(request: AiStreamRequest): Promise<void>
