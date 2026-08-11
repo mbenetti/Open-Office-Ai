@@ -51,6 +51,10 @@ const api: PdfApi = {
   getSkill: (name: string) => ipcRenderer.invoke('skills:get', name),
   searchKnowledgeBase: (query: string, knowledgeBaseId?: string, topK?: number) =>
     ipcRenderer.invoke('knowledge:search', { query, knowledgeBaseId, topK }),
+  webSearch: (query: string, maxResults?: number) =>
+    ipcRenderer.invoke('ai:web-search', query, maxResults),
+  imageSearch: (query: string, maxResults?: number) =>
+    ipcRenderer.invoke('ai:image-search', query, maxResults),
 }
 
 /** Per-document chat history (same channels as docs/sheets/slides; registered by the pdf main process in standalone, by the shell otherwise) */

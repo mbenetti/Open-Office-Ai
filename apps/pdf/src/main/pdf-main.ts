@@ -24,6 +24,68 @@ import type {
 import { extractPagesBytes, insertPdfBytes, savePdfToPath } from './save-pdf'
 import { registerKnowledgeIpc } from '../../../shell/src/main/knowledge-ipc'
 import { ProjectStore } from '@genoffice/project-store'
+import { defaultAiSettings, resolveAiSettings } from '@genoffice/ai-provider'
+import type { AiSettings, LegacyAiSettings } from '@genoffice/ai-provider'
+import { webSearch, imageSearch } from '@genoffice/ai-search'
+
+const SETTINGS_PATH = () => join(app.getPath('userData'), 'ai-settings.json')
+
+function readJson<T>(path: string, fallback: T): T {
+  try {
+    if (existsSync(path)) {
+      const data = require('node:fs').readFileSync(path, 'utf8')
+      return JSON.parse(data) as T
+    }
+  } catch {
+    /* fallback */
+  }
+  return fallback
+}
+
+export function registerAiIpc(): void {
+  registerKnowledgeIpc()
+  
+  // Register generic ai: get-settings / set-settings for standalone PDF mode
+  ipcMain.removeHandler('ai:get-settings')
+  ipcMain.handle('ai:get-settings', (): AiSettings => {
+    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+    return resolveAiSettings(stored, defaultAiSettings())
+  })
+
+  ipcMain.removeHandler('ai:set-settings')
+  ipcMain.handle('ai:set-settings', (_event, settings: unknown) => {
+    require('node:fs').writeFileSync(SETTINGS_PATH(), JSON.stringify(settings, null, 2), 'utf8')
+  })
+
+  // Expose web-search and image-search centrally for standalone mode or shared modules
+  ipcMain.removeHandler('ai:web-search')
+  ipcMain.handle('ai:web-search', async (_event, query: string, maxResults?: number) => {
+    try {
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+      const freshSettings = resolveAiSettings(diskStored, defaultAiSettings())
+      return await webSearch(String(query), typeof maxResults === 'number' ? maxResults : 6, {
+        tavilyApiKey: freshSettings.search?.tavilyApiKey,
+        serperApiKey: freshSettings.search?.serperApiKey,
+      })
+    } catch (err) {
+      return { results: [], method: 'error', error: String(err) }
+    }
+  })
+
+  ipcMain.removeHandler('ai:image-search')
+  ipcMain.handle('ai:image-search', async (_event, query: string, maxResults?: number) => {
+    try {
+      const diskStored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+      const freshSettings = resolveAiSettings(diskStored, defaultAiSettings())
+      return await imageSearch(String(query), typeof maxResults === 'number' ? maxResults : 8, {
+        tavilyApiKey: freshSettings.search?.tavilyApiKey,
+        serperApiKey: freshSettings.search?.serperApiKey,
+      })
+    } catch (err) {
+      return { images: [], method: 'error', error: String(err) }
+    }
+  })
+}
 
 const tDlg = createI18n({
   zh: {
@@ -362,6 +424,7 @@ export function requestPdfSaveAs(contents: WebContents, targetPath: string): Pro
 let ipcRegistered = false
 
 function registerPdfIpc(): void {
+  registerAiIpc()
   if (ipcRegistered) return
   ipcRegistered = true
 

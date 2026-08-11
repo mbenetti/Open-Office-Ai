@@ -32,6 +32,19 @@ export interface PdfAiDeps {
 
 export const AGENT_TOOLS: AgentToolDef[] = [
   {
+    name: 'web_search',
+    description:
+      'Search the web for textual information (references/data/facts). Use when you need up-to-date information or are unsure about a fact. Returns titles/links/snippets.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search keywords/query' },
+        maxResults: { type: 'integer', description: 'Maximum search results to return' },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'read_pages',
     description:
       'Read the text content of a page range (with [Page N] markers). Read the relevant pages before answering questions; at most 10 pages per call, over-long output is truncated.',
@@ -353,6 +366,27 @@ async function fillFormField(
 export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Promise<ToolExecution> {
   const input = call.input
   switch (call.name) {
+    case 'web_search': {
+      const query = String(input.query ?? '').trim()
+      if (!query) return err('query must not be empty', 'Web Search')
+      try {
+        const r = await (window as any).pdfApi.webSearch(query, Number(input.maxResults) || 6)
+        if (r.method === 'error') {
+          return err(r.error || 'Search backend error', 'Web Search')
+        }
+        const lines: string[] = []
+        if (r.answer) lines.push(`Direct answer: ${r.answer}\n`)
+        r.results.forEach((it: any, i: number) => {
+          lines.push(`[${i + 1}] ${it.title}\nSource: ${it.link}\n${it.snippet}\n`)
+        })
+        return {
+          output: lines.join('\n') || 'No results found',
+          summary: `Searched web for "${query}"`,
+        }
+      } catch (e) {
+        return err(e instanceof Error ? e.message : String(e), 'Web Search')
+      }
+    }
     case 'read_pages':
       return readPages(deps, input)
     case 'search_text':

@@ -206,4 +206,15 @@ export interface PdfApi {
       similarityScore: number
     }>
   >
+  webSearch?: (query: string, maxResults?: number) => Promise<{
+    results: Array<{ title: string; link: string; snippet: string }>
+    method?: string
+    error?: string
+    answer?: string
+  }>
+  imageSearch?: (query: string, maxResults?: number) => Promise<{
+    images: Array<{ title: string; link: string; imageUrl: string }>
+    method?: string
+    error?: string
+  }>
 }
