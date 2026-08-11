@@ -50,8 +50,8 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 ### 2. Knowledge Base & Collection Management
 * **Collection Workspace**: Create, rename, delete, and organize knowledge bases (collections) directly from the unified Upload Document tab.
 * **High-Fidelity PDF Table Parsing (`@firecrawl/pdf-inspector`)**: Integrates high-performance Rust-backed PDF extraction that automatically detects structured data and converts PDF tables directly into Markdown pipe tables (`| Activity | Time | Cost |`), preserving tabular layouts for Knowledge Base retrieval and LLM context without losing structure.
-* **Intelligent Section-Merging Chunker (up to 4,000 Chars)**: Markdown documents and parsed PDFs are chunked hierarchically up to 4,000 characters. Small adjacent sections are automatically merged into cohesive passages instead of creating micro-chunks, while protected atomic structures (tables, code fences, math equations, and lists) remain strictly unbroken.
-* **Responsive & Theme-Aware Table Previews**: Table previews in both the Knowledge Base document viewer and individual chunk inspector render with responsive multi-line cell text wrapping (`whiteSpace: 'pre-wrap'`) and dark-mode slate theme styling (`var(--surface-subtle)`), ensuring clean, readable table layouts across dark and light editor themes.
+* **Multi-Format Document Ingestion**: In addition to `.pdf` and `.md`, the Knowledge Base can now ingest and parse Word documents (`.docx`), Excel spreadsheets (`.xlsx`), PowerPoint presentations (`.pptx`), and plain text/code files (`.txt`, `.csv`, `.tsv`, `.json`, `.xml`, `.html`, `.htm`). Each format is extracted into clean structured Markdown before being chunked and vectorized, creating a unified and format-independent knowledge store.
+* **Intelligent Hierarchical Section-Merging Chunker (up to 4,000 Chars)**: Markdown documents and parsed PDFs are chunked recursively down the heading hierarchy (`#` $\rightarrow$ `##` $\rightarrow$ `###` $\rightarrow$ `####`). Small adjacent sections are automatically merged into cohesive passages instead of creating micro-chunks, while protected atomic structures (tables, code fences, math equations, and lists) remain strictly unbroken.
 * **SQLite & Permanent Disk Storage Architecture**:
   * **Inside SQLite (`knowledge-store.sqlite`)**: Manages collections, document metadata, Table of Contents (TOC) JSON structures, chunks, vector embeddings, and dual FTS5 virtual tables (`chunks_fts` and `documents_fts`).
   * **Outside SQLite (On Disk `md-documents/`)**: Full extracted document text is saved as permanent `.md` files (`doc-XXXXXXXX.md`).
@@ -101,6 +101,10 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 * **Contextual Selection Pop-up**: Added **Review Selection** to the right-click/selection pop-up menu for instant proofing of any selected text.
 * **Custom Local Server Support**: Settings panel allows pointing to a local Docker or Java LanguageTool deployment (e.g., `http://localhost:8081/v2`) for fully offline, private proofing.
 
+### 6. Interactive PDF Notes & Popup Text Display (PDF Viewer)
+* **On-Click Note Content Popups**: PDF notes can be created anywhere on the document by clicking in note mode. Now, selecting or clicking the note icon pin immediately displays its full text content in a customized, scrollable, floating pop-up card alongside the delete button (no longer restricted to a mouse hover/tooltip).
+* **Scrollable Note Previews**: Floating note pop-ups support automatic line wrapping, word break prevention, and maximum height constraints with scrollable vertical overflows, accommodating long annotated remarks without cluttering the canvas.
+* **Note Pin Visual Highlighting**: Active or selected note pins are highlighted with an accent outline and offset to clearly display which remark is currently selected.
 ### 6. LLM, Search & Embedding Configuration
 * **Custom Endpoints**: Configure custom OpenAI-compatible endpoints, local Ollama instances, and API keys for both LLM reasoning and embedding models.
 * **Cascading Web Search**: Configurable search engine cascade: **Tavily API** (first, if key provided) → **Serper API** (Google Search) → **DuckDuckGo** (default fallback, no API keys required), managed via the dedicated Web Search settings tab.
