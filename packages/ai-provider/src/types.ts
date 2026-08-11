@@ -71,7 +71,7 @@ export interface LanguageToolSettings {
 }
 
 export type GrammarLanguage = 'en' | 'es' | 'auto'
-export type GrammarEngineMode = 'transformer' | 'llm' | 'auto'
+export type GrammarEngineMode = 'llm' | 'auto'
 
 export interface GrammarSettings {
   enabled: boolean

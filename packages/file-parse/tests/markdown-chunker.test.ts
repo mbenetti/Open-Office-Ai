@@ -134,3 +134,46 @@ Ending text.`
     expect(chunks[0]!.text).toContain('| Header 1 | Header 2 |')
   })
 })
+  it('performs recursive hierarchical splitting and fallback down to H4 then paragraphs', () => {
+    // We construct a document that has:
+    // - H1 (huge body, exceeds 200 maxChunkSize)
+    //   - H2 (fits, around 80 chars)
+    //   - H2 (fits, around 80 chars)
+    //   - H2 (oversized, exceeds 200 maxChunkSize)
+    //     - H3 (fits, around 60 chars)
+    //     - H3 (fits, around 60 chars)
+    //       - H4 (fits, around 40 chars)
+    //       - H4 (oversized, exceeds 200 maxChunkSize, falls back to paragraph split)
+    const raw = `# Main Chapter
+## Section 1
+Short paragraph under section 1. It fits perfectly.
+
+## Section 2
+Short paragraph under section 2. It fits perfectly.
+
+## Section 3
+### Subsection 3.1
+Short subsection 3.1 content.
+
+### Subsection 3.2
+#### Subsection 3.2.1
+Short sub-sub-sub content.
+
+#### Subsection 3.2.2
+This is a very long paragraph that will trigger paragraph and line based chunking on our hierarchical splitter. We repeat this to make sure it exceeds the max chunk size easily and correctly. We repeat this to make sure it exceeds the max chunk size easily and correctly.`
+
+    const chunks = chunkMarkdownDocument(raw, { maxChunkSize: 200 })
+
+    // It should successfully chunk the entire document without losing any lines
+    expect(chunks.length).toBeGreaterThan(3)
+
+    // Check that we don't have any chunks larger than 200 characters
+    for (const c of chunks) {
+      expect(c.text.length).toBeLessThanOrEqual(200)
+    }
+
+    // Reconstruction test to ensure all characters are intact and identical
+    const reconstructed = chunks.map((c) => c.text).join('\n\n')
+    // Remove extra trailing newlines to compare raw text content
+    expect(reconstructed.replace(/\s+/g, '')).toBe(raw.replace(/\s+/g, ''))
+  })

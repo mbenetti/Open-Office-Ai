@@ -3313,7 +3313,7 @@ export function Home() {
                   No Knowledge Base Collections Yet
                 </span>
                 <span className="empty-hint" style={{ marginTop: 4 }}>
-                  Create a collection in the sidebar, then click or select `.pdf` / `.md` files to
+                  Create a collection in the sidebar, then click or select supported documents (.pdf, .md, .docx, .xlsx, .pptx, .txt, .csv) to
                   chunk, store, and vectorize.
                 </span>
               </div>
@@ -3407,7 +3407,7 @@ export function Home() {
                   disabled={uploadingDoc}
                   onClick={() => void handleUploadKnowledgeDoc()}
                 >
-                  {uploadingDoc ? 'Uploading & Chunking...' : '+ Upload Document (.pdf / .md)'}
+                  {uploadingDoc ? 'Uploading & Chunking...' : '+ Upload Document'}
                 </button>
               </div>
             </div>

@@ -17,7 +17,7 @@ export interface KnowledgeDocument {
   knowledgeBaseId: string
   name: string
   path: string
-  ext: 'pdf' | 'md'
+  ext: string
   sizeBytes: number
   addedAtMs: number
   chunkCount: number
@@ -358,9 +358,7 @@ export class KnowledgeStore {
         id: r.id,
         knowledgeBaseId: r.knowledge_base_id,
         name: r.name,
-        path: r.path,
-        ext: r.ext as 'pdf' | 'md',
-        sizeBytes: r.size_bytes,
+        ext: r.ext as string,
         addedAtMs: r.added_at_ms,
         chunkCount: r.chunk_count,
         totalChars: r.total_chars,
@@ -377,10 +375,11 @@ export class KnowledgeStore {
   ): Promise<{ ok: true; document: KnowledgeDocument } | { ok: false; error: string }> {
     const db = this.initDatabase()
     const ext = extname(filePath).slice(1).toLowerCase()
-    if (ext !== 'pdf' && ext !== 'md' && ext !== 'markdown') {
+    const SUPPORTED_EXTS = new Set(['pdf', 'md', 'markdown', 'docx', 'xlsx', 'pptx', 'txt', 'csv', 'tsv', 'json', 'xml', 'html', 'htm'])
+    if (!SUPPORTED_EXTS.has(ext)) {
       return {
         ok: false,
-        error: 'Only .pdf and .md files are supported in the Knowledge Base.',
+        error: 'Unsupported file type for the Knowledge Base.',
       }
     }
 
@@ -406,7 +405,7 @@ export class KnowledgeStore {
 
     const docId = `doc-${crypto.randomUUID().slice(0, 8)}`
     const name = basename(filePath)
-    const normExt: 'pdf' | 'md' = ext === 'pdf' ? 'pdf' : 'md'
+    const normExt = ext
     const totalChars = chunks.reduce((acc: number, c: DocumentChunk) => acc + c.charCount, 0)
 
     // Save permanent .md file copy

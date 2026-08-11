@@ -2285,17 +2285,31 @@ export default function App() {
             </button>
           </div>
         )}
-        {selected && (
-          <div
-            className="pdf-del-popup"
-            style={{ left: selected.x, top: selected.y }}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <button type="button" onClick={deleteSelected}>
-              {t('deleteAnnotation')}
-            </button>
-          </div>
-        )}
+        {selected && (() => {
+          let noteText: string | null = null
+          if (selected.kind === 'drawing') {
+            const drawing = drawings.find((d) => d.id === selected.id)
+            if (drawing && drawing.input.kind === 'note') {
+              noteText = drawing.input.contents
+            }
+          }
+          return (
+            <div
+              className={`pdf-del-popup${noteText !== null ? ' pdf-note-popup' : ''}`}
+              style={{ left: selected.x, top: selected.y }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {noteText !== null && (
+                <div className="pdf-note-text-display">
+                  {noteText}
+                </div>
+              )}
+              <button type="button" onClick={deleteSelected}>
+                {t('deleteAnnotation')}
+              </button>
+            </div>
+          )
+        })()}
         {deleteToast && (
           <div className="pdf-toast">
             <span>{t('annotationDeleted')}</span>

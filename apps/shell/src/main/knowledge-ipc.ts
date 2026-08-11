@@ -170,12 +170,13 @@ export function registerKnowledgeIpc(): void {
   ipcMain.handle('knowledge:pick', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win ?? undefined as any, {
-      title: 'Select Knowledge Base Document (.pdf or .md)',
+      title: 'Select Knowledge Base Document',
       properties: ['openFile'],
       filters: [
-        { name: 'Knowledge Documents', extensions: ['pdf', 'md', 'markdown'] },
-        { name: 'PDF Documents', extensions: ['pdf'] },
-        { name: 'Markdown Documents', extensions: ['md', 'markdown'] },
+        {
+          name: 'Knowledge Documents',
+          extensions: ['pdf', 'md', 'markdown', 'docx', 'xlsx', 'pptx', 'txt', 'csv', 'tsv', 'json', 'xml', 'html', 'htm'],
+        },
       ],
     })
     if (result.canceled || result.filePaths.length === 0) return null

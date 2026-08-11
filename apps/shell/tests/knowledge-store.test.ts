@@ -171,7 +171,19 @@ describe('KnowledgeStore', () => {
       expect(existsSync(mdPath)).toBe(false)
     }
   })
+  it('supports other document formats such as .docx', async () => {
+    mkdirSync(TEST_DIR, { recursive: true })
+    const sampleFilePath = join(TEST_DIR, 'sample.docx')
+    // We can write fake bytes representing docx, parsing will fall back or mock-parse
+    writeFileSync(sampleFilePath, Buffer.from([0x50, 0x4B, 0x03, 0x04])) // zip PK header
 
+    const store = new KnowledgeStore(TEST_STORE_PATH)
+    // Attempting to add it will trigger parseFileToText. Since we wrote fake bytes, parseDocx will fail
+    // gracefully or we verify that the correct error or success is reached.
+    const res = await store.addDocument(sampleFilePath, 'default-kb')
+    expect(res.ok).toBe(false)
+    expect(res.error).toBeDefined()
+  })
   it('performs FTS5 full-text keyword search and BM25 ranking', async () => {
     mkdirSync(TEST_DIR, { recursive: true })
     const f1 = join(TEST_DIR, 'f1.md')

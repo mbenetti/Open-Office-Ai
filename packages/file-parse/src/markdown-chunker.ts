@@ -188,11 +188,13 @@ function splitOversizedCodeBlock(
 }
 
 /**
- * Hierarchical markdown chunking strategy:
- * - Starts from top header `#`, `##`, `###`, etc.
- * - Merges adjacent sections into chunks up to `maxChunkSize` (default 4000 chars)
- *   so small sections don't produce tiny chunks.
- * - Merges empty titles (titles without body text) with lower-level titles until text is present under the title.
+ * Hierarchical recursive markdown chunking strategy:
+ * - Attempts to split down the level hierarchy: # (H1), ## (H2), ### (H3), #### (H4).
+ * - Sibling headers or nested content are grouped together up to `maxChunkSize` (default 4000).
+ * - If a section block is under maxChunkSize, we leave it. If not, we try to split by the current level (starting at level 1, then level 2, then level 3, then level 4).
+ * - If a section block is still over maxChunkSize even at H4 (or has no further headers), it splits by paragraphs (\n\n) then lines (\n).
+ * - Sibling headers are grouped back-to-back if they fit together without exceeding maxChunkSize.
+ * - Empty titles (titles without body text) are merged with lower-level titles until text is present under the title.
  * - Never breaks mid code-block, math formula ($$), table, list item, or blockquote unless an individual unit exceeds maxChunkSize.
  * - Concatenating all chunks' text creates a complete, duplicate-free copy of the original document.
  */
@@ -204,6 +206,7 @@ export function chunkMarkdownDocument(
   const normalized = rawText.replace(/\r\n/g, '\n').trim()
   if (!normalized) return []
 
+  // 1. Initial parsing of the document into "Section Blocks"
   const lines = normalized.split('\n')
   const blocks: SectionBlock[] = []
   const activeHeaders: HeaderNode[] = []
@@ -227,7 +230,6 @@ export function chunkMarkdownDocument(
   for (const line of lines) {
     const trimmed = line.trim()
 
-    // Track code blocks and math blocks to ignore header syntax inside literal code/formulas
     const codeMatch = trimmed.match(/^(`{3,}|~{3,})/)
     if (codeMatch && !inMathBlock) {
       const fence = codeMatch[1]!
@@ -272,7 +274,7 @@ export function chunkMarkdownDocument(
   }
   flush()
 
-  // If there were only headers and no body text at all in the whole document
+  // If there were only headers and no body text at all in the document
   if (blocks.length === 0 && activeHeaders.length > 0) {
     const fullText = activeHeaders.map((h) => h.rawLine).join('\n')
     const headerPath = activeHeaders.map((h) => `${'#'.repeat(h.level)} ${h.title}`).join(' > ')
@@ -298,103 +300,289 @@ export function chunkMarkdownDocument(
     })
   }
 
-  // Assemble chunks: merge adjacent sections into a single chunk up to
-  // maxChunkSize (so small sections don't produce tiny chunks). Oversized
-  // sections are still split on protected atomic units.
-  let curText = ''
-  let curPath = '(Document)'
-  const flushAccumulated = () => {
-    if (curText) {
-      pushChunk(curText, curPath)
-      curText = ''
-    }
-  }
+  // Helper to calculate the size of a block taking into account printed headers
+  const getBlockText = (b: SectionBlock, printed: Set<string>): { text: string; prefix: string; body: string } => {
+    const unprinted = b.headers.filter((h) => !printed.has(h.rawLine))
+    const prefix = unprinted.map((h) => h.rawLine).join('\n')
+    const body = b.lines.join('\n').trim()
+    const text = prefix ? (body ? `${prefix}\n${body}` : prefix) : body
+    return { text, prefix, body }
+  };
 
-  for (const block of blocks) {
-    const path = formatPath(block.headers)
+  // Sibling hierarchy splitting function
+  function splitRecursive(blocksToSplit: SectionBlock[], currentLevel: number): void {
+    if (blocksToSplit.length === 0) return
 
-    // Collect headers that need to be prepended (unprinted ones)
-    const unprinted = block.headers.filter((h) => !printedHeaders.has(h.rawLine))
-    const headerPrefix = unprinted.map((h) => h.rawLine).join('\n')
-
-    const bodyText = block.lines.join('\n').trim()
-    const fullBlockText = headerPrefix
-      ? bodyText
-        ? `${headerPrefix}\n${bodyText}`
-        : headerPrefix
-      : bodyText
-
-    // Mark these headers as printed so they aren't duplicated in future sections
-    for (const h of block.headers) {
-      printedHeaders.add(h.rawLine)
-    }
-
-    if (fullBlockText.length <= maxChunkSize) {
-      // Merge this section into the chunk currently being assembled.
-      const candidate = curText ? `${curText}\n\n${fullBlockText}` : fullBlockText
-      if (candidate.length <= maxChunkSize) {
-        if (!curText) curPath = path
-        curText = candidate
-      } else {
-        flushAccumulated()
-        curPath = path
-        curText = fullBlockText
+    // 1. Calculate the total size of this entire blocksToSplit set
+    let totalLen = 0
+    const testPrinted = new Set<string>(printedHeaders)
+    for (const b of blocksToSplit) {
+      const { text } = getBlockText(b, testPrinted)
+      totalLen += text.length + (totalLen > 0 ? 2 : 0)
+      for (const h of b.headers) {
+        testPrinted.add(h.rawLine)
       }
-    } else {
-      // Oversized section: flush what was accumulated, then split it on
-      // protected atomic units (code, math, tables, lists, paragraphs).
-      flushAccumulated()
-      const units = parseAtomicUnits(fullBlockText)
-      let unitText = ''
+    }
 
-      for (const unit of units) {
-        const candidate = unitText ? `${unitText}\n\n${unit}` : unit
-        if (candidate.length <= maxChunkSize) {
-          unitText = candidate
-        } else {
-          if (unitText) {
-            pushChunk(unitText, path)
-            unitText = ''
+    if (totalLen <= maxChunkSize) {
+      // Entire group fits perfectly in maxChunkSize! Merge and commit.
+      const groupTextParts: string[] = []
+      const path = formatPath(blocksToSplit[0]!.headers)
+      for (const b of blocksToSplit) {
+        const { text } = getBlockText(b, printedHeaders)
+        groupTextParts.push(text)
+        for (const h of b.headers) {
+          printedHeaders.add(h.rawLine)
+        }
+      }
+      pushChunk(groupTextParts.join('\n\n'), path)
+      return
+    }
+
+    // 2. Group adjacent blocks by their header at currentLevel
+    const subGroups: SectionBlock[][] = []
+    let currentSubGroup: SectionBlock[] = []
+    let lastHeaderRaw: string | null = null
+
+    for (const b of blocksToSplit) {
+      // Find header at this level
+      let hRaw: string | null = null
+      for (const header of b.headers) {
+        if (header.level === currentLevel) {
+          hRaw = header.rawLine
+          break
+        }
+      }
+
+      if (hRaw !== null && hRaw !== lastHeaderRaw) {
+        if (currentSubGroup.length > 0) {
+          subGroups.push(currentSubGroup)
+        }
+        currentSubGroup = [b]
+        lastHeaderRaw = hRaw
+      } else {
+        currentSubGroup.push(b)
+      }
+    }
+    if (currentSubGroup.length > 0) {
+      subGroups.push(currentSubGroup)
+    }
+
+    // 3. Progressive fallbacks if everything grouped into a single subgroup
+    if (subGroups.length === 1) {
+      // If we have a single block and it still exceeds the limit
+      if (blocksToSplit.length === 1) {
+        const singleBlock = blocksToSplit[0]!
+        const path = formatPath(singleBlock.headers)
+
+        if (currentLevel < 4) {
+          // Find if this single block has sub-headers inside its lines of level > currentLevel
+          const lines = singleBlock.lines
+          const subBlocks: SectionBlock[] = []
+          let activeHeadersSub = [...singleBlock.headers]
+          let currentLinesSub: string[] = []
+          let inCodeBlockSub = false
+          let codeFenceSub = ''
+          let inMathBlockSub = false
+
+          const flushSub = () => {
+            if (currentLinesSub.length > 0 || activeHeadersSub.length > singleBlock.headers.length) {
+              if (currentLinesSub.some((l) => l.trim().length > 0)) {
+                subBlocks.push({
+                  headers: [...activeHeadersSub],
+                  lines: [...currentLinesSub],
+                })
+              }
+              currentLinesSub = []
+            }
           }
 
-          if (unit.length > maxChunkSize) {
-            if (unit.startsWith('```') || unit.startsWith('~~~')) {
-              splitOversizedCodeBlock(unit, maxChunkSize, path, pushChunk)
-            } else {
-              // Split list items or text lines cleanly
-              const lines = unit.split('\n')
-              let subText = ''
-              for (const l of lines) {
-                const subCand = subText ? `${subText}\n${l}` : l
-                if (subCand.length <= maxChunkSize) {
-                  subText = subCand
-                } else {
-                  if (subText) pushChunk(subText, path)
-                  if (l.length > maxChunkSize) {
-                    for (let i = 0; i < l.length; i += maxChunkSize) {
-                      pushChunk(l.slice(i, i + maxChunkSize), path)
-                    }
-                    subText = ''
+          for (const line of lines) {
+            const trimmed = line.trim()
+
+            const codeMatch = trimmed.match(/^(`{3,}|~{3,})/)
+            if (codeMatch && !inMathBlockSub) {
+              const fence = codeMatch[1]!
+              if (!inCodeBlockSub) {
+                inCodeBlockSub = true
+                codeFenceSub = fence
+              } else if (trimmed.startsWith(codeFenceSub)) {
+                inCodeBlockSub = false
+                codeFenceSub = ''
+              }
+            }
+
+            if (trimmed.startsWith('$$') && !inCodeBlockSub) {
+              inMathBlockSub = !inMathBlockSub
+            }
+
+            const match = !inCodeBlockSub && !inMathBlockSub ? line.match(/^(#{1,6})\s+(.+)$/) : null
+            if (match) {
+              const lvl = match[1]!.length
+              const title = match[2]!.trim()
+              if (!isInvalidPageHeaderTitle(title) && lvl > singleBlock.headers.length) {
+                flushSub()
+                const node: HeaderNode = { level: lvl, title, rawLine: line }
+                while (activeHeadersSub.length > singleBlock.headers.length && activeHeadersSub.at(-1)!.level >= lvl) {
+                  activeHeadersSub.pop()
+                }
+                activeHeadersSub.push(node)
+                continue
+              }
+            }
+            currentLinesSub.push(line)
+          }
+          flushSub()
+
+          if (subBlocks.length > 1) {
+            // Recurse into the sub-blocks we just extracted
+            splitRecursive(subBlocks, currentLevel + 1)
+            return
+          }
+        }
+
+        // Base Case: H4 reached or no sub-headers found. Split by paragraph and lines protecting atomic units.
+        const { text } = getBlockText(singleBlock, printedHeaders)
+        for (const h of singleBlock.headers) {
+          printedHeaders.add(h.rawLine)
+        }
+
+        const units = parseAtomicUnits(text)
+        let unitText = ''
+
+        for (const unit of units) {
+          const candidate = unitText ? `${unitText}\n\n${unit}` : unit
+          if (candidate.length <= maxChunkSize) {
+            unitText = candidate
+          } else {
+            if (unitText) {
+              pushChunk(unitText, path)
+              unitText = ''
+            }
+
+            if (unit.length > maxChunkSize) {
+              if (unit.startsWith('```') || unit.startsWith('~~~')) {
+                splitOversizedCodeBlock(unit, maxChunkSize, path, pushChunk)
+              } else {
+                const lines = unit.split('\n')
+                let subText = ''
+                for (const l of lines) {
+                  const subCand = subText ? `${subText}\n${l}` : l
+                  if (subCand.length <= maxChunkSize) {
+                    subText = subCand
                   } else {
-                    subText = l
+                    if (subText) pushChunk(subText, path)
+                    if (l.length > maxChunkSize) {
+                      for (let i = 0; i < l.length; i += maxChunkSize) {
+                        pushChunk(l.slice(i, i + maxChunkSize), path)
+                      }
+                      subText = ''
+                    } else {
+                      subText = l
+                    }
                   }
                 }
+                if (subText) pushChunk(subText, path)
               }
-              if (subText) pushChunk(subText, path)
+            } else {
+              unitText = unit
             }
-          } else {
-            unitText = unit
+          }
+        }
+        if (unitText) {
+          pushChunk(unitText, path)
+        }
+      } else {
+        // If all blocks share the same header at currentLevel, we progress currentLevel down
+        if (currentLevel < 4) {
+          splitRecursive(blocksToSplit, currentLevel + 1)
+        } else {
+          // We reached H4, but still have multiple blocks under the same H4.
+          // Process each block individually.
+          for (const b of blocksToSplit) {
+            splitRecursive([b], currentLevel)
           }
         }
       }
-      if (unitText) {
-        pushChunk(unitText, path)
+      return
+    }
+
+    // 4. Pack sub-groups sequentially into packed sibling groups of size <= maxChunkSize
+    const packedSiblingGroups: SectionBlock[][] = []
+    let currentSiblingGroup: SectionBlock[] = []
+    let currentSiblingSize = 0
+    const siblingPrinted = new Set<string>(printedHeaders)
+
+    for (const sg of subGroups) {
+      // Calculate total size of this sibling group
+      let sgSize = 0
+      for (const b of sg) {
+        const { text } = getBlockText(b, siblingPrinted)
+        sgSize += text.length + (sgSize > 0 ? 2 : 0)
+        for (const h of b.headers) {
+          siblingPrinted.add(h.rawLine)
+        }
       }
-      // Next section starts a fresh accumulated chunk.
-      curText = ''
+
+      if (sgSize > maxChunkSize) {
+        if (currentSiblingGroup.length > 0) {
+          packedSiblingGroups.push(currentSiblingGroup)
+          currentSiblingGroup = []
+          currentSiblingSize = 0
+        }
+        packedSiblingGroups.push(sg)
+      } else {
+        const candSize = currentSiblingSize + (currentSiblingSize > 0 ? 2 : 0) + sgSize
+        if (candSize <= maxChunkSize) {
+          currentSiblingGroup.push(...sg)
+          currentSiblingSize = candSize
+        } else {
+          if (currentSiblingGroup.length > 0) {
+            packedSiblingGroups.push(currentSiblingGroup)
+          }
+          currentSiblingGroup = [...sg]
+          currentSiblingSize = sgSize
+        }
+      }
+    }
+    if (currentSiblingGroup.length > 0) {
+      packedSiblingGroups.push(currentSiblingGroup)
+    }
+
+    // 5. Recursively split or commit each packed sibling group
+    for (const psg of packedSiblingGroups) {
+      // We check if psg fits in a single chunk with the latest printedHeaders
+      let psgSize = 0
+      const psgTestPrinted = new Set<string>(printedHeaders)
+      for (const b of psg) {
+        const { text } = getBlockText(b, psgTestPrinted)
+        psgSize += text.length + (psgSize > 0 ? 2 : 0)
+        for (const h of b.headers) {
+          psgTestPrinted.add(h.rawLine)
+        }
+      }
+
+      if (psgSize > maxChunkSize) {
+        // This single packed subgroup exceeds maxChunkSize. Step down to currentLevel + 1!
+        splitRecursive(psg, currentLevel + 1)
+      } else {
+        // Fits perfectly in maxChunkSize! Merge and commit.
+        const groupTextParts: string[] = []
+        const path = formatPath(psg[0]!.headers)
+        for (const b of psg) {
+          const { text } = getBlockText(b, printedHeaders)
+          groupTextParts.push(text)
+          for (const h of b.headers) {
+            printedHeaders.add(h.rawLine)
+          }
+        }
+        pushChunk(groupTextParts.join('\n\n'), path)
+      }
     }
   }
-  flushAccumulated()
+
+  // Kick off splitting at level 1 (H1)
+  splitRecursive(blocks, 1)
 
   return chunks
 }

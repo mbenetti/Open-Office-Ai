@@ -11,24 +11,8 @@ export interface GrammarCorrectionResponse {
   ok: boolean
   correctedText?: string
   language?: string
-  engineUsed?: 'transformer' | 'llm'
+  engineUsed?: 'llm'
   error?: string
-}
-
-let transformerPipelinePromise: Promise<any> | null = null
-
-async function getTransformerPipeline() {
-  if (!transformerPipelinePromise) {
-    transformerPipelinePromise = (async () => {
-      const { pipeline } = await import('@xenova/transformers')
-      return pipeline('text2text-generation', 'Xenova/flan-t5-small')
-    })().catch((err) => {
-      console.warn('[grammar] Failed to initialize local ONNX transformer pipeline:', err)
-      transformerPipelinePromise = null
-      throw err
-    })
-  }
-  return transformerPipelinePromise
 }
 
 export async function correctGrammar(
@@ -51,41 +35,6 @@ export async function correctGrammar(
       /\b(el|la|los|las|un|una|unos|unas|y|en|con|que|por|para|esta|estan|es|son|del|al|como)\b/i
     if (spanishWords.test(text) || /[áéíóúñ¿¡]/i.test(text)) {
       targetLang = 'es'
-    }
-  }
-
-  // 1. Local Transformer ONNX (@xenova/transformers)
-  if (engine === 'transformer' || engine === 'auto') {
-    try {
-      const pipe = await getTransformerPipeline()
-      const prompt =
-        targetLang === 'es'
-          ? `Corrige la gramática y ortografía en español: "${text}"`
-          : `Fix grammar: ${text}`
-
-      const res = await pipe(prompt, {
-        max_new_tokens: Math.max(128, Math.ceil(text.length * 1.5)),
-      })
-
-      let corrected = res?.[0]?.generated_text?.trim() || ''
-
-      // Clean wrapping quotes if the model echoed them
-      if (corrected.startsWith('"') && corrected.endsWith('"') && !text.startsWith('"')) {
-        corrected = corrected.slice(1, -1).trim()
-      }
-
-      if (corrected && corrected !== prompt) {
-        return {
-          ok: true,
-          correctedText: corrected,
-          language: targetLang,
-          engineUsed: 'transformer',
-        }
-      }
-    } catch (err) {
-      if (engine === 'transformer') {
-        console.warn('[grammar] Local ONNX transformer failed:', err)
-      }
     }
   }
 
