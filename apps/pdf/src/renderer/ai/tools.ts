@@ -503,12 +503,31 @@ export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Prom
 
         // 1. Saved PDF Annotations (excluding structural navigation links and form widgets)
         const IGNORED_SUBTYPES = new Set(['Link', 'Widget', 'Popup', '3D', 'Projection'])
+        const ANNOTATION_TYPE_NAMES: Record<number, string> = {
+          1: 'Text (Sticky Note)',
+          2: 'Link',
+          3: 'FreeText',
+          4: 'Line',
+          5: 'Square',
+          6: 'Circle',
+          7: 'Polygon',
+          8: 'PolyLine',
+          9: 'Highlight',
+          10: 'Underline',
+          11: 'Squiggly',
+          12: 'StrikeOut',
+          13: 'Stamp',
+          14: 'Caret',
+          15: 'Ink',
+          16: 'Popup',
+          20: 'Widget',
+        }
 
         for (const a of annots) {
-          const type = a.subtype || 'Annotation'
-          if (IGNORED_SUBTYPES.has(type)) continue
+          const rawType = a.subtype || (typeof a.annotationType === 'number' ? ANNOTATION_TYPE_NAMES[a.annotationType] : undefined) || 'Annotation'
+          if (IGNORED_SUBTYPES.has(rawType) || a.annotationType === 2 || a.annotationType === 20) continue
 
-          const contents = (a.contents || '').trim()
+          const contents = (a.contents || a.contentsObj?.str || a.title || a.titleObj?.str || '').trim()
           let extractedText = ''
 
           if (a.quadPoints && Array.isArray(a.quadPoints) && a.quadPoints.length >= 8) {
@@ -517,18 +536,22 @@ export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Prom
               quads.push(a.quadPoints.slice(i, i + 8))
             }
             extractedText = extractTextUnderQuads(quads)
-          } else if (a.rect && Array.isArray(a.rect) && a.rect.length === 4) {
+          }
+
+          if (!extractedText && a.rect && Array.isArray(a.rect) && a.rect.length === 4) {
             const r = a.rect
             extractedText = extractTextUnderQuads([[r[0], r[3], r[2], r[3], r[0], r[1], r[2], r[1]]])
           }
 
+          const rectCoords = a.rect && Array.isArray(a.rect) ? ` [${a.rect.map(Math.round).join(', ')}]` : ''
+
           if (extractedText || contents) {
-            let desc = `[Page ${n}] Saved ${type}`
+            let desc = `[Page ${n}] Saved ${rawType}${rectCoords}`
             if (extractedText) desc += `: "${extractedText}"`
             if (contents) desc += ` (Note: "${contents}")`
             lines.push(desc)
-          } else if (type === 'Highlight' || type === 'Underline' || type === 'StrikeOut' || type === 'Text') {
-            lines.push(`[Page ${n}] Saved ${type} (at coordinates [${(a.rect || []).map(Math.round).join(', ')}])`)
+          } else {
+            lines.push(`[Page ${n}] Saved ${rawType}${rectCoords}`)
           }
         }
 
