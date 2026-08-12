@@ -2273,6 +2273,7 @@ export default function App() {
                           selectTitle={t('removeMarkup')}
                           onSelect={(id, x, y) =>
                             setSelected({ kind: 'markup', id, ...popupPos(x, y) })
+                          }
                         />
                         <SavedAnnotOverlay
                           doc={doc}
