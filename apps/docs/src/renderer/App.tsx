@@ -439,7 +439,9 @@ export function App() {
   /** Style definitions pending write-back (key = styleId), saved via SaveOptions.styleUpserts */
   const [styleUpserts, setStyleUpserts] = useState<Record<string, StyleUpsert>>({})
   const [comments, setComments] = useState<CommentInfo[]>([])
-  const [commentsDirty, setCommentsDirty] = useState(false)
+  useEffect(() => {
+    ;(window as any).__docComments = comments
+  }, [comments])
   const [watermark, setWatermark] = useState<string | null>(null)
   const [watermarkDirty, setWatermarkDirty] = useState(false)
   const [inkAnnotations, setInkAnnotations] = useState<InkAnnotation[]>([])

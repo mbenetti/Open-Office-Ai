@@ -247,8 +247,13 @@ export const AGENT_TOOLS: AgentToolDef[] = [
           },
         },
       },
-      required: ['blockIndex', 'updates'],
     },
+  },
+  {
+    name: 'read_annotations',
+    description:
+      'Read all comments and annotations in the Word document, including author, comment text, parent/reply structure, and anchor text from the document body.',
+    inputSchema: { type: 'object', properties: {} },
   },
 ]
 
@@ -912,6 +917,58 @@ function executeSyncTool(
         output: outcome.summary,
         mutated: changed > 0,
         summary: outcome.summary,
+      }
+    }
+    case 'read_annotations': {
+      const anchorMap = new Map<string, string[]>()
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText) {
+          const marks = node.marks.filter((m) => m.type.name === 'docComment')
+          for (const m of marks) {
+            const rawIds = String(m.attrs.commentIds || m.attrs.id || '')
+            const ids = rawIds.split(' ').filter(Boolean)
+            for (const id of ids) {
+              const current = anchorMap.get(id) || []
+              current.push(node.text || '')
+              anchorMap.set(id, current)
+            }
+          }
+        }
+      })
+
+      // Query active comments stored in window state / DOM if available
+      const rawComments: any[] = (window as any).__docComments || []
+      const lines: string[] = []
+
+      if (rawComments.length === 0 && anchorMap.size === 0) {
+        return {
+          output: 'No comments or annotations found in this document.',
+          mutated: false,
+          summary: 'Read document annotations',
+        }
+      }
+
+      for (const c of rawComments) {
+        const anchor = (anchorMap.get(c.id) || []).join('').trim()
+        const parentInfo = c.parentId ? ` (Reply to comment ${c.parentId})` : ''
+        const status = c.done ? ' [Resolved]' : ''
+        let desc = `[Comment ${c.id}]${parentInfo}${status} Author: ${c.author || 'Anonymous'}`
+        if (anchor) desc += `\nAnchor Text: "${anchor}"`
+        desc += `\nComment: "${c.text}"\n`
+        lines.push(desc)
+      }
+
+      // If comments weren't in window state, list collected anchor marks
+      if (lines.length === 0) {
+        for (const [id, textParts] of anchorMap) {
+          lines.push(`[Comment ${id}]\nAnchor Text: "${textParts.join('').trim()}"`)
+        }
+      }
+
+      return {
+        output: lines.join('\n') || 'No comments or annotations found in this document.',
+        mutated: false,
+        summary: 'Read document annotations',
       }
     }
 

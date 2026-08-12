@@ -27,6 +27,8 @@ export interface PdfAiDeps {
   applyFormEdit(v: FormValueInput): void
   rotatePage(origIdx: number, dir: 90 | -90): void
   deletePage(origIdx: number): boolean
+  markups?(): readonly LocalMarkup[]
+  drawings?(): readonly LocalDrawing[]
   selectedText?(): string | null
 }
 
@@ -153,6 +155,17 @@ export const AGENT_TOOLS: AgentToolDef[] = [
     description:
       'Read the document outline (bookmarks) tree, including entry titles. Returns empty if the document has no outline.',
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'read_annotations',
+    description:
+      'Read all annotations, notes, highlights, and markups in the document (both saved PDF annotations and session edits). For highlights/underlines, this extracts the corresponding text under the marked area.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', description: 'Optional: limit reading to a specific page number (1-based)' },
+      },
+    },
   },
 ]
 
@@ -438,6 +451,91 @@ export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Prom
       return {
         output: lines.join('\n') || 'The document has no outline',
         summary: t('aiToolOutline'),
+      }
+    }
+    case 'read_annotations': {
+      const doc = deps.doc()
+      if (!doc) return err('Document not ready', 'Read Annotations')
+      const targetPage = input.page ? Number(input.page) : null
+      const lines: string[] = []
+
+      for (let n = 1; n <= doc.numPages; n++) {
+        if (targetPage !== null && targetPage !== n) continue
+        if (deps.isDeleted(n - 1)) continue
+
+        const page = await doc.getPage(n)
+        const annots = await page.getAnnotations().catch(() => [])
+        const content = await page.getTextContent().catch(() => ({ items: [] }))
+        page.cleanup()
+
+        // Helper to extract text under quads/rect
+        const extractTextUnderQuads = (quads: number[][]): string => {
+          interface TextItem { str: string; transform: number[]; width: number; height: number }
+          const items = (content.items || []).filter((it): it is TextItem => 'str' in it)
+          const matchedStrings: string[] = []
+
+          for (const q of quads) {
+            const xs = [q[0]!, q[2]!, q[4]!, q[6]!]
+            const ys = [q[1]!, q[3]!, q[5]!, q[7]!]
+            const minX = Math.min(...xs) - 2
+            const maxX = Math.max(...xs) + 2
+            const minY = Math.min(...ys) - 2
+            const maxY = Math.max(...ys) + 2
+
+            for (const item of items) {
+              const ix = item.transform[4]!
+              const iy = item.transform[5]!
+              if (ix >= minX && ix <= maxX && iy >= minY && iy <= maxY) {
+                if (item.str.trim()) matchedStrings.push(item.str.trim())
+              }
+            }
+          }
+          return matchedStrings.join(' ')
+        }
+
+        // 1. Saved PDF Annotations
+        for (const a of annots) {
+          const type = a.subtype || 'Annotation'
+          const contents = a.contents || ''
+          let extractedText = ''
+          if (a.quadPoints && Array.isArray(a.quadPoints)) {
+            const quads: number[][] = []
+            for (let i = 0; i < a.quadPoints.length; i += 8) {
+              quads.push(a.quadPoints.slice(i, i + 8))
+            }
+            extractedText = extractTextUnderQuads(quads)
+          } else if (a.rect) {
+            const r = a.rect
+            extractedText = extractTextUnderQuads([[r[0], r[3], r[2], r[3], r[0], r[1], r[2], r[1]]])
+          }
+
+          if (extractedText || contents) {
+            let desc = `[Page ${n}] Saved ${type}`
+            if (extractedText) desc += `: "${extractedText}"`
+            if (contents) desc += ` (Note: "${contents}")`
+            lines.push(desc)
+          }
+        }
+
+        // 2. Session Markups (Highlights / Underlines / Strikeouts)
+        const sessionMarkups = (deps.markups?.() || []).filter((m) => m.pageIndex === n - 1)
+        for (const m of sessionMarkups) {
+          const text = extractTextUnderQuads(m.quads)
+          lines.push(`[Page ${n}] Session ${m.type}: "${text || '(markup at coordinates)'}"`)
+        }
+
+        // 3. Session Drawings / Note Pins
+        const sessionDrawings = (deps.drawings?.() || []).filter((d) => d.input.pageIndex === n - 1)
+        for (const d of sessionDrawings) {
+          if (d.input.kind === 'note') {
+            lines.push(`[Page ${n}] Session Note Pin: "${d.input.contents}"`)
+          }
+        }
+      }
+
+      return {
+        output: lines.join('\n') || 'No annotations, highlights, or notes found in the document.',
+        summary: 'Read document annotations',
       }
     }
     default:

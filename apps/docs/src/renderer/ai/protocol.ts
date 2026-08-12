@@ -113,7 +113,7 @@ export const AGENT_SYSTEM_PROMPT = [
   '- Illustrations: when the user wants pictures, first image_search (English keywords work better) → pick a suitable result → insert_image with its imageUrl to insert into the document;',
   '- Charts: use insert_chart for data visualization (bar/line/pie; saved as native Word charts); use edit_chart to change the data of an existing chart block in the block list; data must be real, from the document or search results;',
   '- Tables: to fill form fields or update text in an existing table, use update_table_cells with the table blockIndex and cell updates ({row, col, text}). Do NOT use replace_blocks on an existing table unless the user asks to restructure or recreate the table; update_table_cells preserves all original table styling, borders, shading, and formatting byte-for-byte;',
-  '- One reply may chain multiple tools; after everything is done, always finish with a short plain-text summary.',
+  '- Annotations & Comments: use read_annotations when you need to read comments, author notes, replies, or anchor text created in the document;',
   '',
   '# HTML fragment rules',
   HTML_RULES,

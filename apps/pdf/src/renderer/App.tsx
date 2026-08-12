@@ -1441,6 +1441,8 @@ export default function App() {
       deletePage(origIdx)
       return true
     },
+    markups: () => markups,
+    drawings: () => drawings,
   }
 
   /** Internal destination of a Link annotation → jump to that page */
