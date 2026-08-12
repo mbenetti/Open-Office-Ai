@@ -114,7 +114,13 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 * **On-Click Note Content Popups**: PDF notes can be created anywhere on the document by clicking in note mode. Now, selecting or clicking the note icon pin immediately displays its full text content in a customized, scrollable, floating pop-up card alongside the delete button (no longer restricted to a mouse hover/tooltip).
 * **Scrollable Note Previews**: Floating note pop-ups support automatic line wrapping, word break prevention, and maximum height constraints with scrollable vertical overflows, accommodating long annotated remarks without cluttering the canvas.
 * **Note Pin Visual Highlighting**: Active or selected note pins are highlighted with an accent outline and offset to clearly display which remark is currently selected.
-### 6. LLM, Search & Embedding Configuration
+* **Interactive Saved Annotation Deletion**: Saved PDF highlights, underlines, and note pins created in prior sessions or external PDF readers (Acrobat, Preview, Chrome) feature interactive click hit-boxes that allow selecting and deleting saved markups directly from the PDF file.
+
+### 7. Document Annotations, Highlights & Notes AI Tool (`read_annotations`)
+* **Cross-Format Annotation Extraction**: Both Word (`.docx`) and PDF (`.pdf`) AI chatbots are equipped with a dedicated `read_annotations` tool that allows the assistant to inspect comments, notes, and highlights across the open document.
+* **2D Bounding-Box Text Reconstruction (PDF)**: For PDF highlights and markups where only bounding quadrilaterals exist, the tool executes 2D box-intersection logic against the PDF.js character stream to reconstruct and return the exact highlighted text passage.
+* **Comment & Anchor Text Pairing (Word Processor)**: For Word documents, `read_annotations` queries active comments, author names, reply threads, and matches comment IDs with ProseMirror `docComment` marks to pair each comment directly with its highlighted anchor text from the document body.
+### 8. LLM, Search & Embedding Configuration
 * **Custom Endpoints**: Configure custom OpenAI-compatible endpoints, local Ollama instances, and API keys for both LLM reasoning and embedding models.
 * **Cascading Web Search**: Configurable search engine cascade: **Tavily API** (first, if key provided) → **Serper API** (Google Search) → **DuckDuckGo** (default fallback, no API keys required), managed via the dedicated Web Search settings tab.
 * **Ollama & vLLM Integration**: First-class, dedicated providers for local Ollama and vLLM endpoints with dynamic placeholders, automatic default base URLs, and key-free execution support across all editors (Docs, Sheets, Slides, PDF).
