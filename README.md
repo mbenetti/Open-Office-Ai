@@ -77,16 +77,25 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ### 3. Domain-Specific RAG & Hybrid Search
 * **Dual SQLite FTS5 & Vector Hybrid Search**: Combines native SQLite FTS5 full-text keyword indexing (BM25 ranking) with local vector embeddings (cosine similarity), blended seamlessly using **Reciprocal Rank Fusion (RRF)**.
+
+![Screenshot](./ing/Screenshot6.png)
+
 * **Dual FTS5 Indexing Architecture**:
   * **Passage-Level Index (`chunks_fts`)**: Evaluates BM25 keyword relevance bounded by ~2,000-character chunk boundaries.
   * **External Content Document Index (`documents_fts`)**: Uses SQLite FTS5 `content=''` external content virtual tables to calculate true full-document BM25 ranking without duplicating raw text inside SQLite (full text stays in permanent disk `.md` files).
+
+![Screenshot](./ing/Screenshot8.png)
+
 * **Multi-Collection Selection (One or More KBs)**: Filter RAG queries by selecting one, multiple specific collections, or searching across all collections simultaneously. The chatbot UI allows users to toggle specific collections on demand, feeding only relevant, highly-targeted chunks to the LLM.
+
+![Screenshot](./ing/Screenshot7.png)
+
 * **Semantic Workbench & Term Highlighting**: A dedicated testing tab ("Semantic workbench") featuring:
   * **Search Mode Selector**: Toggle between **Hybrid** (Vector + FTS via RRF), **Vector Only** (Cosine Similarity), and **FTS Only** (SQLite FTS5 BM25).
   * **Target Scope**: Filter between **Chunks / Passages** and **Documents** (aggregated).
   * **Term Highlighting**: Automatically highlights matching query keywords in yellow (`<mark>`) across header paths and retrieved text passages.
 
-![Screenshot](./ing/Screenshot6.png)
+![Screenshot](./ing/Screenshot9.png)
 
 ### 4. Reusable AI Skills (Slash Commands)
 * **Skills Library**: Create, modify, and delete reusable AI skills in a dedicated tab.
