@@ -434,10 +434,15 @@ button {
   background-position: 0 46%;
 }
 
-.pdf-markup:hover {
-  outline: 1px dashed rgb(0 0 0 / 35%);
+.pdf-saved-annot {
+  background: transparent;
 }
 
+.pdf-markup:hover,
+.pdf-saved-annot:hover {
+  outline: 1.5px dashed #2b66ff;
+  outline-offset: 1px;
+}
 /* ── Annotation selection (click selects; deletion via the popup or Delete key) ── */
 
 .pdf-markup-selected,

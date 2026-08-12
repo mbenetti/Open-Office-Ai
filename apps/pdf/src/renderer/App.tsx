@@ -214,7 +214,94 @@ function MarkupOverlay({
     </>
   )
 }
+interface SavedAnnotHit {
+  id: string
+  subtype: string
+  rect: [number, number, number, number]
+  quads?: number[][]
+}
 
+/** Interactive overlay for saved PDF annotations (e.g. Highlights, Notes) to make them selectable & deletable */
+function SavedAnnotOverlay({
+  doc,
+  pageNo,
+  origIdx,
+  geom,
+  scale,
+  selectedId,
+  deletedRects,
+  selectTitle,
+  onSelect,
+}: {
+  doc: PDFDocumentProxy
+  pageNo: number
+  origIdx: number
+  geom: PageGeom
+  scale: number
+  selectedId: string | null
+  deletedRects: Set<string>
+  selectTitle: string
+  onSelect: (id: string, rect: [number, number, number, number], x: number, y: number) => void
+}) {
+  const [annots, setAnnots] = useState<SavedAnnotHit[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const page = await doc.getPage(pageNo).catch(() => null)
+      if (!page) return
+      const rawAnnots = (await page.getAnnotations().catch(() => [])) as any[]
+      page.cleanup()
+      if (cancelled) return
+      const IGNORED = new Set(['Link', 'Widget', 'Popup', '3D', 'Projection'])
+      const out: SavedAnnotHit[] = []
+      let idx = 0
+      for (const a of rawAnnots) {
+        const subtype = a.subtype || (a.annotationType === 9 ? 'Highlight' : a.annotationType === 1 ? 'Text' : 'Annot')
+        if (IGNORED.has(subtype) || a.annotationType === 2 || a.annotationType === 20) continue
+        if (a.rect && Array.isArray(a.rect) && a.rect.length === 4) {
+          const id = `sa-${origIdx}-${idx++}-${a.rect.map(Math.round).join('_')}`
+          const quads: number[][] = []
+          if (a.quadPoints && Array.isArray(a.quadPoints) && a.quadPoints.length >= 8) {
+            for (let i = 0; i < a.quadPoints.length; i += 8) {
+              quads.push(a.quadPoints.slice(i, i + 8))
+            }
+          }
+          out.push({ id, subtype, rect: a.rect as SavedAnnotHit['rect'], quads: quads.length ? quads : undefined })
+        }
+      }
+      setAnnots(out)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [doc, pageNo, origIdx])
+
+  return (
+    <>
+      {annots.map((a) => {
+        const keyRect = a.rect.map(Math.round).join('_')
+        const isDeleted = deletedRects.has(`${origIdx}:${keyRect}`)
+        if (isDeleted) return null
+
+        const style: CSSProperties = pdfRectToCss(geom, a.rect, scale)
+        const isSelected = a.id === selectedId
+        return (
+          <div
+            key={a.id}
+            className={`pdf-markup pdf-saved-annot${isSelected ? ' pdf-markup-selected' : ''}`}
+            style={{ ...style, pointerEvents: 'auto', cursor: 'pointer' }}
+            title={selectTitle}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect(a.id, a.rect, e.clientX, e.clientY)
+            }}
+          />
+        )
+      })}
+    </>
+  )
+}
 /** Thumbnail: rendered once per (doc, rotation) when visible and cached */
 function PdfThumb({
   doc,
@@ -534,6 +621,7 @@ interface EditSnapshot {
 /** Selected annotation with the anchor of its floating delete popup; a stamp click selects the whole watermark/header-footer set */
 type AnnotSelection =
   | { kind: 'markup' | 'drawing'; id: string; x: number; y: number }
+  | { kind: 'savedAnnot'; id: string; pageIndex: number; rect: [number, number, number, number]; x: number; y: number }
   | { kind: 'stamp'; x: number; y: number }
 
 /** Page ranges like "1-3,5" → list of 1-based page numbers; null if invalid */
@@ -571,6 +659,7 @@ export default function App() {
   const [outline, setOutline] = useState<OutlineNode[] | null>(null)
   const [markups, setMarkups] = useState<LocalMarkup[]>([])
   const [drawings, setDrawings] = useState<LocalDrawing[]>([])
+  const [deletedSavedAnnots, setDeletedSavedAnnots] = useState<{ pageIndex: number; rect: number[] }[]>([])
   const [drawTool, setDrawTool] = useState<DrawTool | null>(null)
   const [drawColor, setDrawColor] = useState<[number, number, number]>(DRAW_COLORS[0]!.rgb)
   const [notePrompt, setNotePrompt] = useState<{ origIdx: number; at: [number, number] } | null>(
@@ -853,6 +942,7 @@ export default function App() {
   const dirty =
     markups.length > 0 ||
     drawings.length > 0 ||
+    deletedSavedAnnots.length > 0 ||
     stampCfg !== null ||
     formEdits.size > 0 ||
     rotations.size > 0 ||
@@ -870,6 +960,7 @@ export default function App() {
   const snapshot = (): EditSnapshot => ({
     markups,
     drawings,
+    deletedSavedAnnots,
     stampCfg,
     formEdits,
     rotations,
@@ -888,6 +979,7 @@ export default function App() {
   const applySnapshot = (s: EditSnapshot) => {
     setMarkups(s.markups)
     setDrawings(s.drawings)
+    setDeletedSavedAnnots((s as any).deletedSavedAnnots ?? [])
     setStampCfg(s.stampCfg)
     setFormEdits(s.formEdits)
     setRotations(s.rotations)
@@ -1054,6 +1146,7 @@ export default function App() {
     pushUndo()
     if (sel.kind === 'markup') setMarkups((prev) => prev.filter((m) => m.id !== sel.id))
     else if (sel.kind === 'drawing') setDrawings((prev) => prev.filter((d) => d.id !== sel.id))
+    else if (sel.kind === 'savedAnnot') setDeletedSavedAnnots((prev) => [...prev, { pageIndex: sel.pageIndex, rect: sel.rect }])
     else setStampCfg(null)
     setSelected(null)
     // Transient "deleted · undo" toast so the removal is visible and reversible in place
@@ -1071,7 +1164,7 @@ export default function App() {
   const editsPayload = () => ({
     markups: markups.map(({ id: _id, ...rest }) => rest),
     drawings: drawings.map((d) => d.input),
-    stamps: stampCfg ? renderStamps(stampCfg, visList) : [],
+    deletedSavedAnnots,
     formValues: [...formEdits.values()],
     rotations: [...rotations].map(([pageIndex, delta]) => ({ pageIndex, delta })),
     deletedPages: [...deleted],
@@ -2180,6 +2273,24 @@ export default function App() {
                           selectTitle={t('removeMarkup')}
                           onSelect={(id, x, y) =>
                             setSelected({ kind: 'markup', id, ...popupPos(x, y) })
+                        />
+                        <SavedAnnotOverlay
+                          doc={doc}
+                          pageNo={origIdx + 1}
+                          origIdx={origIdx}
+                          geom={geom}
+                          scale={scale}
+                          selectedId={selected?.kind === 'savedAnnot' ? selected.id : null}
+                          deletedRects={
+                            new Set(
+                              deletedSavedAnnots.map(
+                                (d) => `${d.pageIndex}:${d.rect.map(Math.round).join('_')}`,
+                              ),
+                            )
+                          }
+                          selectTitle={t('removeMarkup')}
+                          onSelect={(id, rect, x, y) =>
+                            setSelected({ kind: 'savedAnnot', id, pageIndex: origIdx, rect, ...popupPos(x, y) })
                           }
                         />
                         <DrawLayer

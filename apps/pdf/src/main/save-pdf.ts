@@ -2,11 +2,14 @@ import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import {
   PDFArray,
   PDFBool,
+  PDFDict,
   PDFDocument,
   PDFDropdown,
   PDFHexString,
   PDFName,
+  PDFNumber,
   PDFOptionList,
+  PDFRef,
   degrees,
 } from 'pdf-lib'
 import type { PDFPage, PDFRef } from 'pdf-lib'
@@ -111,7 +114,36 @@ function appendAnnot(pdfDoc: PDFDocument, page: PDFPage, annotRef: PDFRef): void
     page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([annotRef]))
   }
 }
-
+function removeSavedAnnots(pdfDoc: PDFDocument, page: PDFPage, targetRects: number[][]): void {
+  const existing = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray)
+  if (!existing) return
+  const keep: PDFRef[] = []
+  for (let i = 0; i < existing.size(); i++) {
+    const ref = existing.get(i)
+    const dict = pdfDoc.context.lookupMaybe(ref, PDFDict)
+    if (dict) {
+      const rectObj = dict.lookupMaybe(PDFName.of('Rect'), PDFArray)
+      if (rectObj && rectObj.size() === 4) {
+        const r = [
+          (rectObj.get(0) as PDFNumber).value(),
+          (rectObj.get(1) as PDFNumber).value(),
+          (rectObj.get(2) as PDFNumber).value(),
+          (rectObj.get(3) as PDFNumber).value(),
+        ]
+        const isTarget = targetRects.some(
+          (tr) =>
+            Math.abs(tr[0]! - r[0]!) < 3 &&
+            Math.abs(tr[1]! - r[1]!) < 3 &&
+            Math.abs(tr[2]! - r[2]!) < 3 &&
+            Math.abs(tr[3]! - r[3]!) < 3,
+        )
+        if (isTarget) continue
+      }
+    }
+    keep.push(ref as PDFRef)
+  }
+  page.node.set(PDFName.of('Annots'), pdfDoc.context.obj(keep))
+}
 /** 4-segment Bezier approximation of an ellipse */
 function ellipseOps(x1: number, y1: number, x2: number, y2: number): string[] {
   const k = 0.5522847
@@ -326,6 +358,17 @@ export async function applySaveRequest(
   for (const d of request.drawings ?? []) {
     const page = pages[d.pageIndex]
     if (page) addDrawing(pdfDoc, page, d)
+  }
+  if (request.deletedSavedAnnots && request.deletedSavedAnnots.length > 0) {
+    for (const d of request.deletedSavedAnnots) {
+      const list = byPage.get(d.pageIndex) || []
+      list.push(d.rect)
+      byPage.set(d.pageIndex, list)
+    }
+    for (const [pageIdx, rects] of byPage) {
+      const page = pages[pageIdx]
+      if (page) removeSavedAnnots(pdfDoc, page, rects)
+    }
   }
   for (const s of request.stamps ?? []) {
     const page = pages[s.pageIndex]

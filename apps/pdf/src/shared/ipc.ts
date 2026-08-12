@@ -101,9 +101,10 @@ export interface SavePdfRequest {
   rotations?: { pageIndex: number; delta: number }[]
   /** Pages to delete (original page indices) */
   deletedPages?: number[]
+  /** Saved annotations to delete from page's /Annots array */
+  deletedSavedAnnots?: { pageIndex: number; rect: number[] }[]
   /** New page order (array of original page indices, excluding deleted); omitted if unreordered */
   pageOrder?: number[]
-  metadata?: MetadataInput
 }
 
 export type SavePdfResult = { ok: true } | { ok: false; error: string }
