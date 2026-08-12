@@ -468,7 +468,7 @@ export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Prom
         const content = await page.getTextContent().catch(() => ({ items: [] }))
         page.cleanup()
 
-        // Helper to extract text under quads/rect
+        // Helper to extract text under quads/rect using box-intersection
         const extractTextUnderQuads = (quads: number[][]): string => {
           interface TextItem { str: string; transform: number[]; width: number; height: number }
           const items = (content.items || []).filter((it): it is TextItem => 'str' in it)
@@ -477,34 +477,47 @@ export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Prom
           for (const q of quads) {
             const xs = [q[0]!, q[2]!, q[4]!, q[6]!]
             const ys = [q[1]!, q[3]!, q[5]!, q[7]!]
-            const minX = Math.min(...xs) - 2
-            const maxX = Math.max(...xs) + 2
-            const minY = Math.min(...ys) - 2
-            const maxY = Math.max(...ys) + 2
+            const minX = Math.min(...xs) - 3
+            const maxX = Math.max(...xs) + 3
+            const minY = Math.min(...ys) - 3
+            const maxY = Math.max(...ys) + 3
 
             for (const item of items) {
               const ix = item.transform[4]!
               const iy = item.transform[5]!
-              if (ix >= minX && ix <= maxX && iy >= minY && iy <= maxY) {
-                if (item.str.trim()) matchedStrings.push(item.str.trim())
+              const fontH = Math.abs(item.height) || Math.abs(item.transform[3]!) || 10
+              const itemMinX = ix
+              const itemMaxX = ix + (item.width || 0)
+              const itemMinY = iy
+              const itemMaxY = iy + fontH
+
+              // Box intersection test
+              if (itemMaxX >= minX && itemMinX <= maxX && itemMaxY >= minY && itemMinY <= maxY) {
+                const s = item.str.trim()
+                if (s && !matchedStrings.includes(s)) matchedStrings.push(s)
               }
             }
           }
           return matchedStrings.join(' ')
         }
 
-        // 1. Saved PDF Annotations
+        // 1. Saved PDF Annotations (excluding structural navigation links and form widgets)
+        const IGNORED_SUBTYPES = new Set(['Link', 'Widget', 'Popup', '3D', 'Projection'])
+
         for (const a of annots) {
           const type = a.subtype || 'Annotation'
-          const contents = a.contents || ''
+          if (IGNORED_SUBTYPES.has(type)) continue
+
+          const contents = (a.contents || '').trim()
           let extractedText = ''
-          if (a.quadPoints && Array.isArray(a.quadPoints)) {
+
+          if (a.quadPoints && Array.isArray(a.quadPoints) && a.quadPoints.length >= 8) {
             const quads: number[][] = []
             for (let i = 0; i < a.quadPoints.length; i += 8) {
               quads.push(a.quadPoints.slice(i, i + 8))
             }
             extractedText = extractTextUnderQuads(quads)
-          } else if (a.rect) {
+          } else if (a.rect && Array.isArray(a.rect) && a.rect.length === 4) {
             const r = a.rect
             extractedText = extractTextUnderQuads([[r[0], r[3], r[2], r[3], r[0], r[1], r[2], r[1]]])
           }
@@ -514,6 +527,8 @@ export async function executePdfTool(deps: PdfAiDeps, call: AgentToolCall): Prom
             if (extractedText) desc += `: "${extractedText}"`
             if (contents) desc += ` (Note: "${contents}")`
             lines.push(desc)
+          } else if (type === 'Highlight' || type === 'Underline' || type === 'StrikeOut' || type === 'Text') {
+            lines.push(`[Page ${n}] Saved ${type} (at coordinates [${(a.rect || []).map(Math.round).join(', ')}])`)
           }
         }
 
