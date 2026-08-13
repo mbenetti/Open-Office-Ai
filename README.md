@@ -40,12 +40,18 @@ xattr -d com.apple.quarantine "/Applications/Open Office Ai.app"
 
 ## Key Features & Enhancements
 
-### 1. LLM-Assisted Multi-Location Editing & Smart Attachments
-* **Multi-Selection Context**: When selecting multiple cells in Sheets, multiple paragraphs in Word, or multiple elements in PowerPoint/PDF, the entire selection is packaged and sent to the LLM. This allows the AI to answer questions across multiple contexts simultaneously (e.g., answering a question in one cell based on the content of another).
-* **Persistent Selection & Caret Highlighting**: Typing in the AI chatbox maintains a visible selection highlight (`.doc-selection-unfocused`) and cursor caret (`.doc-cursor-unfocused`) in the Word document. AI instructions ("rewrite this selection", "format this paragraph") execute against the exact active selection scope.
-* **Attachment Table of Contents (TOC) Navigation**: Local attachment parsing extracts Level 1 (`#`) and Level 2 (`##`) headings with exact character offsets. The AI agent receives the document TOC directly in its per-turn prompt context and can jump directly to specific sections by heading title or offset.
-* **Transparent Font & Formatting Inheritance**: Pasted external HTML and AI text insertions automatically strip foreign font-family, font-size, and line-height overrides, ensuring new text seamlessly adopts the document's and cursor's current font configuration. Context menus and ribbon controls support 1-click **Accept / Reject Change** for AI tracked revisions (`ins`/`del`).
-* **Byte-Preserving Round Trip & Table Cell Patching (`update_table_cells`)**: Manual and AI edits are applied as surgical patches. When updating form fields or filling text inside existing Word tables, the AI utilizes cell-level targeting (`update_table_cells`) by block index and row/column coordinates. Only the target cell text is updated, preserving the original table's borders, background shading, cell padding, column widths, merged cells, and OOXML structures **100% byte-for-byte** on save without breaking Word layouts.
+### 1. LLM-Assisted Multi-Location Editing, Smart Attachments & Chat Context
+* **Document Ingestion vs. Chat Context**:
+  * **Knowledge Base Ingestion (Global)**: Files uploaded via the **Upload Document** tab are fully parsed, chunked, and permanently vectorized/indexed in SQLite (Hybrid FTS5 + Vector). This enables cross-document semantic search across entire collections.
+  * **Chat Context Ingestion (Ad-hoc)**: Files dropped directly into the **Chat window** are processed "Just-in-Time." They are not permanently indexed; instead, the system builds an ephemeral, navigable structural map of the file. The chatbot uses tool-based "logical navigation" (e.g., fetching content by page number, heading ID, or comment anchor) to pull only the relevant snippets into the chat prompt, optimizing for context precision.
+* **Smart Attachments**:
+  * **Multi-Selection Context**: When selecting multiple cells in Sheets, paragraphs in Word, or elements in PowerPoint/PDF, the entire selection is packaged for the LLM.
+  * **Persistent Selection Highlighting**: Chat instructions ("rewrite this selection", "format this paragraph") execute against the active document caret or selection.
+  * **Attachment TOC Navigation**: Local attachment parsing extracts headings, and the AI agent receives the TOC in its prompt context to jump to specific sections by heading title or offset.
+* **Document Building ("The AI Co-pilot")**:
+  * The chatbot acts as an active builder. By maintaining a live connection to the active document's ProseMirror state, the AI can perform surgical edits (e.g., `update_table_cells`) that preserve the original file's formatting, styles, and OOXML structures byte-for-byte, allowing you to build, edit, and restructure complex documents through conversation.
+* **Format-Independent Parsing**:
+  * The application architecture uses specialized, format-specific engines (e.g., `@genoffice/docx-engine` for Word, `@firecrawl/pdf-inspector` for PDF, and custom XML engines for PPTX/XLSX) to bridge the gap between binary/OOXML formats and AI-ready Markdown, ensuring consistent ingestion regardless of source format.
 
 ### 2. Knowledge Base & Collection Management
 * **Collection Workspace**: Create, rename, delete, and organize knowledge bases (collections) directly from the unified Upload Document tab.
